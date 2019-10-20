@@ -12,12 +12,17 @@
 
 package mongodb
 
+import(
+	"github.com/mongodb/mongo-go-driver/mongo"
+)
+
 // Client client for mongo
 type Client interface {
 	Ping() error
 	Database() Database
 	Collection(collName string) CollectionInterface
 	Session() SessionOperation
+	GetInnerClient() *mongo.Client
 }
 
 // CommonClient single client instance

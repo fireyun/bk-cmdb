@@ -83,3 +83,7 @@ func (c *client) Collection(collName string) mongodb.CollectionInterface {
 func (c *client) Session() mongodb.SessionOperation {
 	return newSessionOperation(c)
 }
+
+func (c *client) GetInnerClient() *mongo.Client {
+	return c.innerClient
+}

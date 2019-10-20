@@ -182,6 +182,7 @@ func (p *pool) get(ctx context.Context) (Connection, *description.Server, error)
 			p.sem.Release(1)
 			return nil, nil, err
 		}
+		c = &cmdbconn{c.(*connection)}
 
 		pc := &pooledConnection{
 			Connection: c,

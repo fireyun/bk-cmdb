@@ -50,6 +50,7 @@ type Connection interface {
 	Expired() bool
 	Alive() bool
 	ID() string
+	GetConn() net.Conn
 }
 
 // Dialer is used to make network connections.
@@ -848,4 +849,8 @@ func (c *connection) initialize(ctx context.Context, appName string) error {
 
 func readInt32(b []byte, pos int32) int32 {
 	return (int32(b[pos+0])) | (int32(b[pos+1]) << 8) | (int32(b[pos+2]) << 16) | (int32(b[pos+3]) << 24)
+}
+
+func (c *connection) GetConn() net.Conn {
+	return c.conn
 }
