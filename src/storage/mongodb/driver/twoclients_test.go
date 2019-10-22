@@ -42,7 +42,7 @@ func executeCommand(t *testing.T, callback func(dbclient mongodb.CommonClient)) 
 	require.NoError(t, dbClient.Close())
 }
 
-func TestDatabaseName(t *testing.T) {
+func aTestDatabaseName(t *testing.T) {
 
 	executeCommand(t, func(dbClient mongodb.CommonClient) {
 		t.Log("database name:", dbClient.Database().Name())
@@ -50,7 +50,7 @@ func TestDatabaseName(t *testing.T) {
 	})
 }
 
-func TestDatabaseHasCollection(t *testing.T) {
+func aTestDatabaseHasCollection(t *testing.T) {
 
 	executeCommand(t, func(dbClient mongodb.CommonClient) {
 		exists, err := dbClient.Database().HasCollection("cc_tmp")
@@ -59,7 +59,7 @@ func TestDatabaseHasCollection(t *testing.T) {
 	})
 }
 
-func TestDatabaseDropCollection(t *testing.T) {
+func aTestDatabaseDropCollection(t *testing.T) {
 	executeCommand(t, func(dbClient mongodb.CommonClient) {
 		require.NoError(t, dbClient.Database().DropCollection("tmptest"))
 	})
@@ -101,12 +101,19 @@ func clientRequest(t *testing.T) {
 }
 
 func clientPassMsg() {
-	c2 := createConnection()
+	ports := []string{"27011","27012","27013","27014"}
+	i := 0
+	for{
+	port := ports[i%4]
+	fmt.Println("connect port is:", port)
+	c2 := driver.NewClient("mongodb://cc:cc@localhost:"+port+"/cmdb")
+	i++
+	// c2 := createConnection()
 	err := c2.Open()
 	if err != nil {
 		panic("open err")
 	}
-	for {
+	// for {
 		// conn, err := c2.GetInnerClient().GetWriteClientConn(context.Background())
 		conn, err := c2.GetInnerClient().GetReadClientConn(context.Background())
 		if err != nil {
@@ -165,7 +172,7 @@ func clientPassMsg() {
 			// 	message:      "unable to read full message",
 			// }
 		}
-		fmt.Printf("***** 333 RecChan<- %d bytes*****\n", len(readBuf))
+		fmt.Printf("***** 333 RecChan<- %d bytes *****\n", len(readBuf))
 		connection.RecChan <- readBuf
 	}
 }

@@ -100,7 +100,7 @@ func (c *cmdbconn) WriteWireMessage(ctx context.Context, wm wiremessage.WireMess
 		}
 	}
 
-	// fmt.Printf("***** 111 the byte stream SendChan <- , size: ******:%d\n", len(c.connection.writeBuf))
+	fmt.Printf("***** 111 the byte stream SendChan <- , size: %d ******\n", len(c.connection.writeBuf))
 
 	SendChan <- c.connection.writeBuf
 	
