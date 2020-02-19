@@ -43,7 +43,7 @@ func main() {
 	if err := common.SavePid(); err != nil {
 		blog.Errorf("fail to save pid: err:%s", err.Error())
 	}
-
+	blog.Infof("begin run")
 	ctx, cancel := context.WithCancel(context.Background())
 	if err := app.Run(ctx, cancel, op); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
