@@ -67,17 +67,17 @@ func ValidFieldTypeEnumOption(option interface{}, errProxy errors.DefaultCCError
 				blog.Errorf("enum option id can't be empty", option)
 				return errProxy.Errorf(common.CCErrCommParamsNeedSet, "option id")
 			}
-			 idValStr, ok := idVal.(string)
-			 if !ok {
+			idValStr, ok := idVal.(string)
+			if !ok {
 				blog.Errorf("idVal %v not string", idVal)
 				return errProxy.Errorf(common.CCErrCommParamsNeedString, "option id")
-			} 
-			
+			}
+
 			if common.AttributeOptionValueMaxLength < utf8.RuneCountInString(idValStr) {
 				blog.Errorf(" option id %s length %d exceeds max length %d", idValStr, utf8.RuneCountInString(idValStr), common.AttributeOptionValueMaxLength)
 				return errProxy.Errorf(common.CCErrCommValExceedMaxFailed, "option id", common.AttributeOptionValueMaxLength)
 			}
-			
+
 			nameVal, nameOk := mapOption["name"]
 			if !nameOk || nameVal == "" {
 				blog.Errorf("enum option name can't be empty", option)

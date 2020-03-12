@@ -547,3 +547,8 @@ type MultipleSyncRegionResult struct {
 	BaseResp `json:",inline"`
 	Data     MultipleSyncRegion `json:"data"`
 }
+
+type TransferHostResourceDirectory struct {
+	ModuleID int64   `json:"bk_module_id"`
+	HostID   []int64 `json:"bk_host_id"`
+}
