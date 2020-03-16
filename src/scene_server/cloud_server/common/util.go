@@ -10,22 +10,25 @@
  * limitations under the License.
  */
 
-package logics
+package common
 
 import (
-	"configcenter/src/common/backbone"
-	"configcenter/src/storage/dal"
-
-	"gopkg.in/redis.v5"
+	"strings"
 )
 
-// Logics framwork need
-type Logics struct {
-	*backbone.Engine
-	db    dal.RDB
-	cache *redis.Client
-}
-
-func NewLogics(engine *backbone.Engine, db dal.RDB, cache *redis.Client) *Logics {
-	return &Logics{db: db, Engine: engine, cache: cache}
+// 将不同云厂商的实例状态转为统一的实例状态
+func CovertInstState(instState string) string {
+	switch strings.ToLower(instState) {
+	case "starting", "pending", "rebooting":
+		return "starting"
+	case "running":
+		return "running"
+	case "stopping", "shutting-down", "terminating":
+		return "stopping"
+	case "stopped", "shutdown", "terminated":
+		return "stopped"
+	default:
+		return "unknow"
+	}
+	return instState
 }

@@ -171,19 +171,20 @@ func (t *taskProcessor) syncDiffHosts(diffhosts map[string][]*metadata.CloudHost
 	var result *metadata.SyncResult
 	var err error
 	for op, hosts := range diffhosts {
-		if op == "add" {
+		switch op {
+		case "add":
 			result, err = t.addHosts(hosts)
 			if err != nil {
 				return nil, err
 			}
 			syncResult.Detail.NewAdd = result.SuccessInfo
-		} else if op == "update" {
+		case "update":
 			result, err = t.updateHosts(hosts)
 			if err != nil {
 				return nil, err
 			}
 			syncResult.Detail.Update = result.SuccessInfo
-		} else {
+		default:
 			blog.Errorf("syncDiffHosts op:%s is invalid", op)
 			return nil, fmt.Errorf("syncDiffHosts op:%s is invalid", op)
 		}
@@ -314,6 +315,7 @@ func (t *taskProcessor) addHosts(hosts []*metadata.CloudHost) (*metadata.SyncRes
 			PrivateIp:     host.PrivateIp,
 			PublicIp:      host.PublicIp,
 			InstanceState: host.InstanceState,
+			OsName:        host.OsName,
 		}
 		if err := t.db.Table(common.BKTableNameBaseHost).Insert(context.Background(), hostSyncInfo); err != nil {
 			blog.Errorf("addHosts insert err:%v", err.Error())
@@ -369,6 +371,7 @@ func (t *taskProcessor) updateHosts(hosts []*metadata.CloudHost) (*metadata.Sync
 			PrivateIp:     host.PrivateIp,
 			PublicIp:      host.PublicIp,
 			InstanceState: host.InstanceState,
+			OsName:        host.OsName,
 		}
 		if err := t.db.Table(common.BKTableNameBaseHost).Update(context.Background(), cond, hostSyncInfo); err != nil {
 			blog.Errorf("updateHosts update err:%v", err.Error())

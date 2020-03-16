@@ -25,11 +25,11 @@ type CloudAccount struct {
 	Description string `json:"bk_description" bson:"bk_description"`
 	// 是否能删除账户，只有该账户下不存在同步任务了，才能删除，此时才能为true，否则为false
 	CanDeleteAccount bool   `json:"bk_can_delete_account" bson:"bk_can_delete_account"`
-	OwnerID    string `json:"bk_supplier_account" bson:"bk_supplier_account"`
-	Creator    string `json:"bk_creator" bson:"bk_creator"`
-	LastEditor string `json:"bk_last_editor" bson:"bk_last_editor"`
-	CreateTime string `json:"create_time" bson:"create_time"`
-	LastTime   string `json:"last_time" bson:"last_time"`
+	OwnerID          string `json:"bk_supplier_account" bson:"bk_supplier_account"`
+	Creator          string `json:"bk_creator" bson:"bk_creator"`
+	LastEditor       string `json:"bk_last_editor" bson:"bk_last_editor"`
+	CreateTime       string `json:"create_time" bson:"create_time"`
+	LastTime         string `json:"last_time" bson:"last_time"`
 }
 
 // 云厂商
@@ -40,9 +40,9 @@ const (
 
 // 同步状态
 const (
-	CloudSyncSuccess    int = 1
-	CloudSyncFail       int = 2
-	CloudSyncInProgress int = 3
+	CloudSyncSuccess    string = "cloud_sync_success"
+	CloudSyncFail       string = "cloud_sync_fail"
+	CloudSyncInProgress string = "cloud_sync_in_progress"
 )
 
 var SupportedCloudVendors = []string{"aws", "tencent_cloud"}
@@ -118,7 +118,7 @@ type CloudSyncTask struct {
 	ResourceType      string        `json:"bk_resource_type" bson:"bk_resource_type"`
 	AccountID         int64         `json:"bk_account_id" bson:"bk_account_id"`
 	CloudVendor       string        `json:"bk_cloud_vendor" bson:"bk_cloud_vendor"`
-	SyncStatus        int           `json:"bk_sync_status" bson:"bk_sync_status"`
+	SyncStatus        string           `json:"bk_sync_status" bson:"bk_sync_status"`
 	OwnerID           string        `json:"bk_supplier_account" bson:"bk_supplier_account"`
 	StatusDescription string        `json:"bk_status_description" bson:"bk_status_description"`
 	LastSyncTime      string        `json:"bk_last_sync_time" bson:"bk_last_sync_time"`
@@ -182,6 +182,7 @@ type Instance struct {
 	PublicIp      string `json:"bk_host_outerip" bson:"bk_host_outerip"`
 	InstanceState string `json:"bk_host_status" bson:"bk_host_status"`
 	VpcId         string `json:"bk_vpc_id" bson:"bk_vpc_id"`
+	OsName        string `json:"bk_os_name" bson:"bk_os_name"`
 }
 
 // 云主机资源
@@ -211,6 +212,7 @@ type HostSyncInfo struct {
 	PrivateIp     string `json:"bk_host_innerip" bson:"bk_host_innerip"`
 	PublicIp      string `json:"bk_host_outerip" bson:"bk_host_outerip"`
 	InstanceState string `json:"bk_host_status" bson:"bk_host_status"`
+	OsName        string `json:"bk_os_name" bson:"bk_os_name"`
 }
 
 // 云区域
@@ -241,7 +243,7 @@ type SyncRegion struct {
 type SyncHistory struct {
 	HistoryID         int64      `json:"bk_history_id" bson:"bk_history_id"`
 	TaskID            int64      `json:"bk_task_id" bson:"bk_task_id"`
-	SyncStatus        int        `json:"bk_sync_status" bson:"bk_sync_status"`
+	SyncStatus        string        `json:"bk_sync_status" bson:"bk_sync_status"`
 	StatusDescription string     `json:"bk_status_description" bson:"bk_status_description"`
 	OwnerID           string     `json:"bk_supplier_account" bson:"bk_supplier_account"`
 	Detail            SyncDetail `json:"bk_detail" bson:"bk_detail"`
