@@ -243,8 +243,11 @@ const (
 	// BKHostOuterIPField the host outerip field
 	BKHostOuterIPField = "bk_host_outerip"
 
-	// BKHostInstanceIDField the host instanceid field
-	BKHostInstanceIDField = "bk_host_instanceid"
+	// BKCloudInstIDField the cloud instance id field
+	BKCloudInstIDField = "bk_cloud_inst_id"
+
+	// BKCloudHostStatusField the cloud host status field
+	BKCloudHostStatusField = "bk_cloud_host_status"
 
 	// TimeTransferModel the time transferModel field
 	TimeTransferModel = "2006-01-02 15:04:05"
@@ -866,6 +869,7 @@ const (
 	BKHTTPCookieLanugageKey = "blueking_language"
 	//BKSessionLanugageKey = "language"
 	BKHTTPSupplierID = "bk_supplier_id"
+	BKHTTPRequestAppCode = "req_app_code"
 
 	// BKHTTPCCRequestID cc request id cc_request_id
 	BKHTTPCCRequestID = "Cc_Request_Id"

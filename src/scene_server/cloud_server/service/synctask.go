@@ -37,12 +37,12 @@ func (s *Service) SearchVpc(ctx *rest.Contexts) {
 		return
 	}
 
-	accountConf, err := s.Logics.GetAccountConf(accountID)
+	accountConf, err := s.Logics.GetCloudAccountConf(accountID)
 	if err != nil {
 		ctx.RespAutoError(ctx.Kit.CCError.CCError(common.CCErrCommDBSelectFailed))
 		return
 	}
-	result, err := s.Logics.GetVpcHostCnt(vpcOpt.Region, *accountConf)
+	result, err := s.Logics.GetVpcHostCnt(*accountConf, vpcOpt.Region)
 	if err != nil {
 		ctx.RespAutoError(ctx.Kit.CCError.CCError(common.CCErrCloudVendorInterfaceCalledFailed))
 		return
@@ -60,6 +60,17 @@ func (s *Service) CreateSyncTask(ctx *rest.Contexts) {
 
 	res, err := s.CoreAPI.CoreService().Cloud().CreateSyncTask(ctx.Kit.Ctx, ctx.Kit.Header, task)
 	if err != nil {
+		ctx.RespAutoError(err)
+		return
+	}
+
+	// add auditLog
+	auditLog := s.Logics.NewSyncTaskAuditLog(ctx.Kit, ctx.Kit.SupplierAccount)
+	if err := auditLog.WithCurrent(ctx.Kit, res.TaskID); err != nil {
+		ctx.RespAutoError(err)
+		return
+	}
+	if err := auditLog.SaveAuditLog(ctx.Kit, metadata.AuditCreate); err != nil {
 		ctx.RespAutoError(err)
 		return
 	}
@@ -123,8 +134,25 @@ func (s *Service) UpdateSyncTask(ctx *rest.Contexts) {
 		return
 	}
 
+	// add auditLog preData
+	auditLog := s.Logics.NewSyncTaskAuditLog(ctx.Kit, ctx.Kit.SupplierAccount)
+	if err := auditLog.WithPrevious(ctx.Kit, taskID); err != nil {
+		ctx.RespAutoError(err)
+		return
+	}
+
 	err = s.CoreAPI.CoreService().Cloud().UpdateSyncTask(ctx.Kit.Ctx, ctx.Kit.Header, taskID, option)
 	if err != nil {
+		ctx.RespAutoError(err)
+		return
+	}
+
+	// add auditLog
+	if err := auditLog.WithCurrent(ctx.Kit, taskID); err != nil {
+		ctx.RespAutoError(err)
+		return
+	}
+	if err := auditLog.SaveAuditLog(ctx.Kit, metadata.AuditUpdate); err != nil {
 		ctx.RespAutoError(err)
 		return
 	}
@@ -140,15 +168,26 @@ func (s *Service) DeleteSyncTask(ctx *rest.Contexts) {
 		return
 	}
 
+	// add auditLog preData
+	auditLog := s.Logics.NewSyncTaskAuditLog(ctx.Kit, ctx.Kit.SupplierAccount)
+	if err := auditLog.WithPrevious(ctx.Kit, taskID); err != nil {
+		ctx.RespAutoError(err)
+		return
+	}
+
 	err = s.CoreAPI.CoreService().Cloud().DeleteSyncTask(ctx.Kit.Ctx, ctx.Kit.Header, taskID)
 	if err != nil {
 		ctx.RespAutoError(err)
 		return
 	}
 
+	if err := auditLog.SaveAuditLog(ctx.Kit, metadata.AuditDelete); err != nil {
+		ctx.RespAutoError(err)
+		return
+	}
+
 	ctx.RespEntity(nil)
 }
-
 
 func (s *Service) SearchSyncHistory(ctx *rest.Contexts) {
 	option := metadata.SearchSyncHistoryOption{}
@@ -199,13 +238,13 @@ func (s *Service) SearchSyncRegion(ctx *rest.Contexts) {
 		return
 	}
 
-	accountConf, err := s.Logics.GetAccountConf(option.AccountID)
+	accountConf, err := s.Logics.GetCloudAccountConf(option.AccountID)
 	if err != nil {
 		ctx.RespAutoError(ctx.Kit.CCError.CCError(common.CCErrCommDBSelectFailed))
 		return
 	}
 
-	result, err := s.Logics.GetRegionsInfo(option.WithHostCount, *accountConf)
+	result, err := s.Logics.GetRegionsInfo(*accountConf, option.WithHostCount)
 	if err != nil {
 		ctx.RespAutoError(ctx.Kit.CCError.CCError(common.CCErrCloudVendorInterfaceCalledFailed))
 		return

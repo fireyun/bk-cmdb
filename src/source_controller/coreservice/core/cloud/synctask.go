@@ -13,8 +13,6 @@
 package cloud
 
 import (
-	"time"
-
 	"configcenter/src/common"
 	"configcenter/src/common/blog"
 	"configcenter/src/common/errors"
@@ -32,7 +30,7 @@ func (c *cloudOperation) CreateSyncTask(kit *rest.Kit, task *metadata.CloudSyncT
 
 	cloudVendor, errVendor := c.getSyncTaskCloudVendor(kit, task.AccountID)
 	if errVendor != nil {
-		blog.ErrorJSON("CreateSyncTask getSyncTaskCloudVendor failed, taskName: %s, err: %v, rid: %s", task.TaskName, errVendor, kit.Rid)
+		blog.ErrorJSON("CreateSyncTask getSyncTaskCloudVendor failed, taskName: %s, err: %s, rid: %s", task.TaskName, errVendor, kit.Rid)
 		return nil, errVendor
 	}
 	task.CloudVendor = cloudVendor
@@ -43,7 +41,7 @@ func (c *cloudOperation) CreateSyncTask(kit *rest.Kit, task *metadata.CloudSyncT
 		return nil, kit.CCError.CCErrorf(common.CCErrCommGenerateRecordIDFailed)
 	}
 	task.TaskID = int64(id)
-	ts := time.Now().Format("2006-01-02 15:04:05")
+	ts := metadata.Now()
 	task.OwnerID = kit.SupplierAccount
 	task.LastEditor = task.Creator
 	task.CreateTime = ts
@@ -51,13 +49,8 @@ func (c *cloudOperation) CreateSyncTask(kit *rest.Kit, task *metadata.CloudSyncT
 
 	err = c.dbProxy.Table(common.BKTableNameCloudSyncTask).Insert(kit.Ctx, task)
 	if err != nil {
-		blog.ErrorJSON("CreateSyncTask failed, db insert failed, taskName: %s, err: %v, rid: %s", task.TaskName, err, kit.Rid)
+		blog.ErrorJSON("CreateSyncTask failed, db insert failed, taskName: %s, err: %s, rid: %s", task.TaskName, err, kit.Rid)
 		return nil, kit.CCError.CCError(common.CCErrCommDBInsertFailed)
-	}
-
-	// 更新账户的删除状态为不能删除
-	if err := c.UpdateCanDeleteAccount(kit, task.AccountID, false); err != nil {
-		return nil, err
 	}
 
 	return task, nil
@@ -69,14 +62,14 @@ func (c *cloudOperation) SearchSyncTask(kit *rest.Kit, option *metadata.SearchCl
 	err := c.dbProxy.Table(common.BKTableNameCloudSyncTask).Find(option.Condition).Fields(option.Fields...).
 		Start(uint64(option.Page.Start)).Limit(uint64(option.Page.Limit)).Sort(option.Page.Sort).All(kit.Ctx, &results)
 	if err != nil {
-		blog.ErrorJSON("SearchSyncTask failed, db find failed, option: %#v, err: %v, rid: %s", *option, err, kit.Rid)
+		blog.ErrorJSON("SearchSyncTask failed, db find failed, option: %s, err: %s, rid: %s", option, err, kit.Rid)
 		return nil, kit.CCError.CCError(common.CCErrCommDBSelectFailed)
 	}
 
 	// 任务总个数
 	count, err := c.countTask(kit, option.Condition)
 	if err != nil {
-		blog.ErrorJSON("SearchSyncTask countTask error %v, option: %v, rid: %s", err, option.Condition, kit.Rid)
+		blog.ErrorJSON("SearchSyncTask countTask error %s, option: %s, rid: %s", err, option.Condition, kit.Rid)
 		return nil, kit.CCError.CCError(common.CCErrCommDBSelectFailed)
 	}
 
@@ -91,7 +84,7 @@ func (c *cloudOperation) UpdateSyncTask(kit *rest.Kit, taskID int64, option maps
 
 	filter := map[string]interface{}{common.BKCloudSyncTaskID: taskID}
 	filter = util.SetModOwner(filter, kit.SupplierAccount)
-	option.Set(common.LastTimeField, time.Now().Format("2006-01-02 15:04:05"))
+	option.Set(common.LastTimeField, metadata.Now())
 	// 确保不会更新云厂商类型、云账户id、开发商id
 	option.Remove(common.BKCloudVendor)
 	option.Remove(common.BKCloudIDField)
@@ -114,27 +107,10 @@ func (c *cloudOperation) DeleteSyncTask(kit *rest.Kit, taskID int64) errors.CCEr
 	if len(task.Info) == 0 {
 		return nil
 	}
-	accountID := task.Info[0].AccountID
-
 	cond = util.SetModOwner(cond, kit.SupplierAccount)
 	if err := c.dbProxy.Table(common.BKTableNameCloudSyncTask).Delete(kit.Ctx, cond); err != nil {
 		blog.Errorf("DeleteSyncTask failed, mongodb operate failed, table: %s, filter: %+v, err: %+v, rid: %s", common.BKTableNameCloudAccount, cond, err, kit.Rid)
 		return kit.CCError.CCError(common.CCErrCommDBDeleteFailed)
-	}
-
-	// 账户下的任务总个数
-	cntCond := mapstr.MapStr{common.BKCloudAccountID: accountID}
-	var count uint64
-	var cntErr error
-	count, cntErr = c.countTask(kit, cntCond)
-	if cntErr != nil {
-		return kit.CCError.CCError(common.CCErrCommDBSelectFailed)
-	}
-	// 账户下的任务数为0，则更新账户状态为可删除
-	if count == 0 {
-		if err := c.UpdateCanDeleteAccount(kit, accountID, true); err != nil {
-			return err
-		}
 	}
 
 	return nil
@@ -146,23 +122,26 @@ func (c *cloudOperation) SearchSyncHistory(kit *rest.Kit, option *metadata.Searc
 	cond := option.Condition
 	cond.Set(common.BKCloudSyncTaskID, option.TaskID)
 	if option.StarTime != "" {
-		cond.Set(common.CreateTimeField, mapstr.MapStr{common.BKDBGTE: option.StarTime})
+		cond.Set(common.CreateTimeField, map[string]interface{}{common.BKDBGTE: option.StarTime, common.BKTimeTypeParseFlag: "1"})
 	}
 	if option.EndTime != "" {
-		cond.Set(common.CreateTimeField, mapstr.MapStr{common.BKDBLTE: option.EndTime})
+		cond.Set(common.CreateTimeField, map[string]interface{}{common.BKDBLTE: option.EndTime, common.BKTimeTypeParseFlag: "1"})
 	}
-
+	// 转换时间
+	query := metadata.QueryInput{Condition: cond}
+	query.ConvTime()
+	cond = query.Condition
 	err := c.dbProxy.Table(common.BKTableNameCloudSyncHistory).Find(cond).Fields(option.Fields...).
 		Start(uint64(option.Page.Start)).Limit(uint64(option.Page.Limit)).Sort(option.Page.Sort).All(kit.Ctx, &results)
 	if err != nil {
-		blog.ErrorJSON("SearchSyncHistory failed, db find failed, option: %v, err: %v, rid: %s", option, err, kit.Rid)
+		blog.ErrorJSON("SearchSyncHistory failed, db find failed, option: %s, err: %s, rid: %s", option, err, kit.Rid)
 		return nil, kit.CCError.CCError(common.CCErrCommDBSelectFailed)
 	}
 
 	// 同步历史记录总个数
 	count, err := c.countHistory(kit, cond)
 	if err != nil {
-		blog.ErrorJSON("SearchSyncHistory countHistory error %v, cond: %v, rid: %s", err, cond, kit.Rid)
+		blog.ErrorJSON("SearchSyncHistory countHistory error %s, cond: %s, rid: %s", err, cond, kit.Rid)
 		return nil, kit.CCError.CCError(common.CCErrCommDBSelectFailed)
 	}
 
@@ -189,22 +168,9 @@ func (c *cloudOperation) getSyncTaskCloudVendor(kit *rest.Kit, accountID int64) 
 	cond = util.SetQueryOwner(cond, kit.SupplierAccount)
 	err := c.dbProxy.Table(common.BKTableNameCloudAccount).Find(cond).One(kit.Ctx, result)
 	if err != nil {
-		blog.ErrorJSON("getSyncTaskCloudVendor failed, db operate failed, cond: %v, err: %v, rid: %s", cond, err, kit.Rid)
+		blog.ErrorJSON("getSyncTaskCloudVendor failed, db operate failed, cond: %s, err: %s, rid: %s", cond, err, kit.Rid)
 		return "", kit.CCError.CCError(common.CCErrCommDBSelectFailed)
 	}
 
 	return result.CloudVendor, nil
-}
-
-// 更新账户的删除状态
-func (c *cloudOperation) UpdateCanDeleteAccount(kit *rest.Kit, accountID int64, canDelete bool) errors.CCErrorCoder {
-	cond := mapstr.MapStr{common.BKCloudAccountID: accountID}
-	cond = util.SetModOwner(cond, kit.SupplierAccount)
-	option := mapstr.MapStr{common.BKCloudCanDeleteAccount: canDelete}
-	err := c.dbProxy.Table(common.BKTableNameCloudAccount).Update(kit.Ctx, cond, option)
-	if err != nil {
-		blog.ErrorJSON("UpdateCanDeleteAccount failed, db update failed, accountID: %s, err: %v, rid: %s", accountID, err, kit.Rid)
-		return kit.CCError.CCError(common.CCErrCommDBUpdateFailed)
-	}
-	return nil
 }

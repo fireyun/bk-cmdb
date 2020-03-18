@@ -25,7 +25,7 @@ import (
 	ccom "configcenter/src/scene_server/cloud_server/common"
 )
 
-func (lgc *Logics) AccountVerify(conf ccom.AccountConf) (bool, error) {
+func (lgc *Logics) AccountVerify(conf metadata.CloudAccountConf) (bool, error) {
 	client, err := cloudvendor.GetVendorClient(conf)
 	if err != nil {
 		blog.Errorf("AccountVerify GetVendorClient err:%s", err.Error())
@@ -43,14 +43,14 @@ func (lgc *Logics) AccountVerify(conf ccom.AccountConf) (bool, error) {
 }
 
 // 获取地域信息
-func (lgc *Logics) GetRegionsInfo(withHostCount bool, conf ccom.AccountConf) (*metadata.MultipleSyncRegion, error) {
+func (lgc *Logics) GetRegionsInfo(conf metadata.CloudAccountConf, withHostCount bool) ([]metadata.SyncRegion, error) {
 	client, err := cloudvendor.GetVendorClient(conf)
 	if err != nil {
 		blog.Errorf("GetRegionsInfo GetVendorClient err:%s", err.Error())
 		return nil, err
 	}
 
-	regionInfo, err := client.GetRegions(nil)
+	regionSet, err := client.GetRegions(nil)
 	if err != nil {
 		blog.Errorf("GetRegionsInfo GetRegions err:%s", err.Error())
 		return nil, err
@@ -62,18 +62,16 @@ func (lgc *Logics) GetRegionsInfo(withHostCount bool, conf ccom.AccountConf) (*m
 		hostCntChan := make(chan []interface{}, 10)
 		var wg, wg2 sync.WaitGroup
 		// 并发请求获取每个地域下的主机数
-		for _, region := range regionInfo.RegionSet {
+		for _, region := range regionSet {
 			wg.Add(1)
 			go func(region *metadata.Region) {
 				defer wg.Done()
-				instancesInfo, err := client.GetInstances(region.RegionId, &ccom.RequestOpt{
-					Limit:   ccom.Int64Ptr(ccom.MaxLimit),
-				})
+				count, err := client.GetInstancesTotalCnt(region.RegionId, nil)
 				if err != nil {
 					blog.Errorf("GetVpcHostCnt GetInstances err:%s", err.Error())
 					return
 				}
-				hostCntChan <- []interface{}{region.RegionId, instancesInfo.Count}
+				hostCntChan <- []interface{}{region.RegionId, count}
 			}(region)
 		}
 		wg2.Add(1)
@@ -88,11 +86,10 @@ func (lgc *Logics) GetRegionsInfo(withHostCount bool, conf ccom.AccountConf) (*m
 		wg2.Wait()
 	}
 
-	result := new(metadata.MultipleSyncRegion)
-	result.Count = regionInfo.Count
-	for i, _ := range regionInfo.RegionSet {
-		region := regionInfo.RegionSet[i]
-		result.Info = append(result.Info, metadata.SyncRegion{
+	result := make([]metadata.SyncRegion, 0)
+	for i, _ := range regionSet {
+		region := regionSet[i]
+		result = append(result, metadata.SyncRegion{
 			RegionId:        region.RegionId,
 			RegionName:      region.RegionName,
 			RegionState:       region.RegionState,
@@ -104,7 +101,7 @@ func (lgc *Logics) GetRegionsInfo(withHostCount bool, conf ccom.AccountConf) (*m
 }
 
 // 获取地域下的vpc详情和主机数
-func (lgc *Logics) GetVpcHostCnt(region string, conf ccom.AccountConf) (*metadata.VpcHostCntResult, error) {
+func (lgc *Logics) GetVpcHostCnt(conf metadata.CloudAccountConf, region string) (*metadata.VpcHostCntResult, error) {
 	client, err := cloudvendor.GetVendorClient(conf)
 	if err != nil {
 		blog.Errorf("GetVpcHostCnt GetVendorClient err:%s", err.Error())
@@ -125,15 +122,14 @@ func (lgc *Logics) GetVpcHostCnt(region string, conf ccom.AccountConf) (*metadat
 		wg.Add(1)
 		go func(vpc *metadata.Vpc) {
 			defer wg.Done()
-			instancesInfo, err := client.GetInstances(region, &ccom.RequestOpt{
+			count, err := client.GetInstancesTotalCnt(region, &ccom.RequestOpt{
 				Filters: []*ccom.Filter{&ccom.Filter{ccom.StringPtr("vpc-id"), ccom.StringPtrs([]string{vpc.VpcId})}},
-				Limit:   ccom.Int64Ptr(ccom.MaxLimit),
 			})
 			if err != nil {
 				blog.Errorf("GetVpcHostCnt GetInstances err:%s", err.Error())
 				return
 			}
-			hostCntChan <- []interface{}{vpc.VpcId, instancesInfo.Count}
+			hostCntChan <- []interface{}{vpc.VpcId, count}
 		}(vpc)
 	}
 	wg2.Add(1)
@@ -163,7 +159,7 @@ func (lgc *Logics) GetVpcHostCnt(region string, conf ccom.AccountConf) (*metadat
 }
 
 // 获取地域下的vpc和主机详情
-func (lgc *Logics) GetCloudHostResource(syncVpcs []metadata.VpcSyncInfo, conf ccom.AccountConf) (*metadata.CloudHostResource, error) {
+func (lgc *Logics) GetCloudHostResource(conf metadata.CloudAccountConf, syncVpcs []metadata.VpcSyncInfo) (*metadata.CloudHostResource, error) {
 	client, err := cloudvendor.GetVendorClient(conf)
 	if err != nil {
 		blog.Errorf("GetCloudHostResource GetVendorClient err:%s", err.Error())
@@ -219,17 +215,17 @@ func (lgc *Logics) GetCloudHostResource(syncVpcs []metadata.VpcSyncInfo, conf cc
 }
 
 // 获取云厂商账户配置
-func (lgc *Logics) GetAccountConf(accountID int64) (*ccom.AccountConf, error) {
-	result := []ccom.AccountConf{}
-	option := mapstr.MapStr{common.BKCloudAccountID: accountID}
-	err := lgc.db.Table(common.BKTableNameCloudAccount).Find(option).All(context.Background(), &result)
+func (lgc *Logics) GetCloudAccountConf(accountID int64) (*metadata.CloudAccountConf, error) {
+	option := &metadata.SearchCloudOption{Condition: mapstr.MapStr{common.BKCloudAccountID: accountID}}
+	result, err := lgc.CoreAPI.CoreService().Cloud().SearchAccountConf(context.Background(), ccom.GetHeader(), option)
 	if err != nil {
-		blog.Errorf("GetAccountConf failed, accountID: %v, err: %s", accountID, err.Error())
+		blog.Errorf("SearchAccountConf failed, accountID: %v, err: %s", accountID, err.Error())
 		return nil, err
 	}
-	if len(result) == 0 {
-		blog.Errorf("GetAccountConf failed, accountID: %v is not exist", accountID)
-		return nil, fmt.Errorf("GetAccountConf failed, accountID: %v is not exist", accountID)
+	if len(result.Info) == 0 {
+			blog.Errorf("GetCloudAccountConf failed, accountID: %v is not exist", accountID)
+			return nil, fmt.Errorf("GetAccountConf failed, accountID: %v is not exist", accountID)
 	}
-	return &result[0], nil
+
+	return &result.Info[0], nil
 }

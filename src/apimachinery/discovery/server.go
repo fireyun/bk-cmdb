@@ -122,8 +122,6 @@ func (s *server) resetServer() {
 
 // 当监听到服务节点变化时，将最新的服务节点信息放入该channel里
 func (s *server) setServersChan() {
-	s.Lock()
-	defer s.Unlock()
 	// 即使没有其他服务消费该channel，也能保证该channel不会阻塞
 	for len(s.serversChan) >=1 {
 		<- s.serversChan

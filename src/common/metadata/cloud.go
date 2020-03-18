@@ -23,13 +23,18 @@ type CloudAccount struct {
 	SecretID    string `json:"bk_secret_id" bson:"bk_secret_id"`
 	SecretKey   string `json:"bk_secret_key" bson:"bk_secret_key"`
 	Description string `json:"bk_description" bson:"bk_description"`
+	OwnerID     string `json:"bk_supplier_account" bson:"bk_supplier_account"`
+	Creator     string `json:"bk_creator" bson:"bk_creator"`
+	LastEditor  string `json:"bk_last_editor" bson:"bk_last_editor"`
+	CreateTime  Time   `json:"create_time" bson:"create_time"`
+	LastTime    Time   `json:"last_time" bson:"last_time"`
+}
+
+// 带有额外信息的云账户
+type CloudAccountWithExtraInfo struct {
+	CloudAccount `json:",inline"`
 	// 是否能删除账户，只有该账户下不存在同步任务了，才能删除，此时才能为true，否则为false
-	CanDeleteAccount bool   `json:"bk_can_delete_account" bson:"bk_can_delete_account"`
-	OwnerID          string `json:"bk_supplier_account" bson:"bk_supplier_account"`
-	Creator          string `json:"bk_creator" bson:"bk_creator"`
-	LastEditor       string `json:"bk_last_editor" bson:"bk_last_editor"`
-	CreateTime       string `json:"create_time" bson:"create_time"`
-	LastTime         string `json:"last_time" bson:"last_time"`
+	CanDeleteAccount bool `json:"bk_can_delete_account" bson:"bk_can_delete_account"`
 }
 
 // 云厂商
@@ -46,6 +51,14 @@ const (
 )
 
 var SupportedCloudVendors = []string{"aws", "tencent_cloud"}
+
+// 云厂商账户配置
+type CloudAccountConf struct {
+	AccountID  int64  `json:"bk_account_id" bson:"bk_account_id"`
+	VendorName string `json:"bk_cloud_vendor" bson:"bk_cloud_vendor"`
+	SecretID   string `json:"bk_secret_id" bson:"bk_secret_id"`
+	SecretKey  string `json:"bk_secret_key" bson:"bk_secret_key"`
+}
 
 type SearchCloudOption struct {
 	Condition mapstr.MapStr `json:"condition" bson:"condition" field:"condition"`
@@ -77,14 +90,14 @@ type MultipleSyncHistory struct {
 	Info  []SyncHistory `json:"info"`
 }
 
-type MultipleSyncRegion struct {
-	Count int64        `json:"count"`
-	Info  []SyncRegion `json:"info"`
+type MultipleCloudAccount struct {
+	Count int64                       `json:"count"`
+	Info  []CloudAccountWithExtraInfo `json:"info"`
 }
 
-type MultipleCloudAccount struct {
-	Count int64          `json:"count"`
-	Info  []CloudAccount `json:"info"`
+type MultipleCloudAccountConf struct {
+	Count int64              `json:"count"`
+	Info  []CloudAccountConf `json:"info"`
 }
 
 type CloudAccountVerify struct {
@@ -118,17 +131,17 @@ type CloudSyncTask struct {
 	ResourceType      string        `json:"bk_resource_type" bson:"bk_resource_type"`
 	AccountID         int64         `json:"bk_account_id" bson:"bk_account_id"`
 	CloudVendor       string        `json:"bk_cloud_vendor" bson:"bk_cloud_vendor"`
-	SyncStatus        string           `json:"bk_sync_status" bson:"bk_sync_status"`
+	SyncStatus        string        `json:"bk_sync_status" bson:"bk_sync_status"`
 	OwnerID           string        `json:"bk_supplier_account" bson:"bk_supplier_account"`
 	StatusDescription string        `json:"bk_status_description" bson:"bk_status_description"`
-	LastSyncTime      string        `json:"bk_last_sync_time" bson:"bk_last_sync_time"`
+	LastSyncTime      Time          `json:"bk_last_sync_time" bson:"bk_last_sync_time"`
 	SyncAll           bool          `json:"bk_sync_all" bson:"bk_sync_all"`
 	SyncAllDir        int64         `json:"bk_sync_all_dir" bson:"bk_sync_all_dir"`
 	SyncVpcs          []VpcSyncInfo `json:"bk_sync_vpcs" bson:"bk_sync_vpcs"`
 	Creator           string        `json:"bk_creator" bson:"bk_creator"`
-	CreateTime        string        `json:"create_time" bson:"create_time"`
+	CreateTime        Time          `json:"create_time" bson:"create_time"`
 	LastEditor        string        `json:"bk_last_editor" bson:"bk_last_editor"`
-	LastTime          string        `json:"last_time" bson:"last_time"`
+	LastTime          Time          `json:"last_time" bson:"last_time"`
 }
 
 type VpcSyncInfo struct {
@@ -147,11 +160,6 @@ type MultipleCloudSyncTask struct {
 type VpcHostCntResult struct {
 	Count int64         `json:"count"`
 	Info  []VpcSyncInfo `json:"info"`
-}
-
-type RegionsInfo struct {
-	Count     int64     `json:"count" bson:"count"`
-	RegionSet []*Region `json:"region_set" bson:"region_set"`
 }
 
 type Region struct {
@@ -176,11 +184,11 @@ type InstancesInfo struct {
 }
 
 type Instance struct {
-	InstanceId    string `json:"bk_host_instanceid" bson:"bk_host_instanceid"`
+	InstanceId    string `json:"bk_cloud_inst_id" bson:"bk_cloud_inst_id"`
 	InstanceName  string `json:"bk_host_name" bson:"bk_host_name"`
 	PrivateIp     string `json:"bk_host_innerip" bson:"bk_host_innerip"`
 	PublicIp      string `json:"bk_host_outerip" bson:"bk_host_outerip"`
-	InstanceState string `json:"bk_host_status" bson:"bk_host_status"`
+	InstanceState string `json:"bk_cloud_host_status" bson:"bk_cloud_host_status"`
 	VpcId         string `json:"bk_vpc_id" bson:"bk_vpc_id"`
 	OsName        string `json:"bk_os_name" bson:"bk_os_name"`
 }
@@ -207,12 +215,14 @@ type CloudHost struct {
 type HostSyncInfo struct {
 	HostID        int64  `json:"bk_host_id" bson:"bk_host_id"`
 	CloudID       int64  `json:"bk_cloud_id" bson:"bk_cloud_id"`
-	InstanceId    string `json:"bk_host_instanceid" bson:"bk_host_instanceid"`
+	InstanceId    string `json:"bk_cloud_inst_id" bson:"bk_cloud_inst_id"`
 	InstanceName  string `json:"bk_host_name" bson:"bk_host_name"`
 	PrivateIp     string `json:"bk_host_innerip" bson:"bk_host_innerip"`
 	PublicIp      string `json:"bk_host_outerip" bson:"bk_host_outerip"`
-	InstanceState string `json:"bk_host_status" bson:"bk_host_status"`
+	InstanceState string `json:"bk_cloud_host_status" bson:"bk_cloud_host_status"`
 	OsName        string `json:"bk_os_name" bson:"bk_os_name"`
+	CreateTime    Time   `json:"create_time" bson:"create_time"`
+	LastTime      Time   `json:"last_time" bson:"last_time"`
 }
 
 // 云区域
@@ -227,9 +237,9 @@ type CloudArea struct {
 	Region      string `json:"bk_region" bson:"bk_region"`
 	AccountID   int64  `json:"bk_account_id" bson:"bk_account_id"`
 	Creator     string `json:"bk_creator" bson:"bk_creator"`
-	CreateTime  string `json:"create_time" bson:"create_time"`
+	CreateTime  Time   `json:"create_time" bson:"create_time"`
 	LastEditor  string `json:"bk_last_editor" bson:"bk_last_editor"`
-	LastTime    string `json:"last_time" bson:"last_time"`
+	LastTime    Time   `json:"last_time" bson:"last_time"`
 }
 
 type SyncRegion struct {
@@ -243,12 +253,11 @@ type SyncRegion struct {
 type SyncHistory struct {
 	HistoryID         int64      `json:"bk_history_id" bson:"bk_history_id"`
 	TaskID            int64      `json:"bk_task_id" bson:"bk_task_id"`
-	SyncStatus        string        `json:"bk_sync_status" bson:"bk_sync_status"`
+	SyncStatus        string     `json:"bk_sync_status" bson:"bk_sync_status"`
 	StatusDescription string     `json:"bk_status_description" bson:"bk_status_description"`
 	OwnerID           string     `json:"bk_supplier_account" bson:"bk_supplier_account"`
 	Detail            SyncDetail `json:"bk_detail" bson:"bk_detail"`
-	Summary           string     `json:"bk_summary" bson:"bk_summary"`
-	CreateTime        string     `json:"create_time" bson:"create_time"`
+	CreateTime        Time       `json:"create_time" bson:"create_time"`
 }
 
 type SyncDetail struct {
