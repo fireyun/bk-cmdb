@@ -52,6 +52,11 @@ const (
 
 var SupportedCloudVendors = []string{"aws", "tencent_cloud"}
 
+var VendorNameIDs = map[string]string{
+	"aws": "1",
+	"tencent_cloud": "2",
+}
+
 // 云厂商账户配置
 type CloudAccountConf struct {
 	AccountID  int64  `json:"bk_account_id" bson:"bk_account_id"`
@@ -251,13 +256,18 @@ type SyncRegion struct {
 
 // 同步历史记录
 type SyncHistory struct {
-	HistoryID         int64      `json:"bk_history_id" bson:"bk_history_id"`
-	TaskID            int64      `json:"bk_task_id" bson:"bk_task_id"`
-	SyncStatus        string     `json:"bk_sync_status" bson:"bk_sync_status"`
-	StatusDescription string     `json:"bk_status_description" bson:"bk_status_description"`
-	OwnerID           string     `json:"bk_supplier_account" bson:"bk_supplier_account"`
-	Detail            SyncDetail `json:"bk_detail" bson:"bk_detail"`
-	CreateTime        Time       `json:"create_time" bson:"create_time"`
+	HistoryID         int64          `json:"bk_history_id" bson:"bk_history_id"`
+	TaskID            int64          `json:"bk_task_id" bson:"bk_task_id"`
+	SyncStatus        string         `json:"bk_sync_status" bson:"bk_sync_status"`
+	OwnerID           string         `json:"bk_supplier_account" bson:"bk_supplier_account"`
+	StatusDescription SyncStatusDesc `json:"bk_status_description" bson:"bk_status_description"`
+	Detail            SyncDetail     `json:"bk_detail" bson:"bk_detail"`
+	CreateTime        Time           `json:"create_time" bson:"create_time"`
+}
+
+type SyncStatusDesc struct {
+	CostTime  float64 `json:"cost_time" bson:"cost_time"`
+	ErrorInfo string  `json:"error_info" bson:"error_info"`
 }
 
 type SyncDetail struct {
