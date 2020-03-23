@@ -113,7 +113,7 @@ func (s *Service) UpdateSetTemplate(ctx *rest.Contexts) {
 		}
 		if _, err := s.Core.SetTemplateOperation().UpdateSetSyncStatus(ctx.Kit, set.SetID); err != nil {
 			blog.Errorf("UpdateSetTemplate failed, UpdateSetSyncStatus failed, setID: %d, err: %+v, rid: %s", set.SetID, err, ctx.Kit.Rid)
-			ctx.RespAutoError(ctx.Kit.CCError.CCError(common.CCErrCommJSONUnmarshalFailed))
+			ctx.RespAutoError(ctx.Kit.CCError.CCError(err.GetCode()))
 			return
 		}
 	}
@@ -227,7 +227,7 @@ func (s *Service) ListSetTemplateWeb(ctx *rest.Contexts) {
 		return
 	}
 	if listOption.Page.Limit == 0 {
-		listOption.Page.Limit = common.BKDefaultLimit
+		listOption.Page.Limit = common.BKNoLimit
 	}
 
 	listResult, err := s.Engine.CoreAPI.CoreService().SetTemplate().ListSetTemplate(ctx.Kit.Ctx, ctx.Kit.Header, bizID, listOption)
