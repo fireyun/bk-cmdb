@@ -99,7 +99,7 @@ func (s *Service) FindManyCloudArea(req *restful.Request, resp *restful.Response
 
 	res, err := s.CoreAPI.CoreService().Instance().ReadInstance(srvData.ctx, srvData.header, common.BKInnerObjIDPlat, query)
 	if nil != err {
-		blog.Errorf("FindManyCloudArea htt do error: %v query:%#v,rid:%s", err, query, rid)
+		blog.Errorf("FindManyCloudArea http do error: %v query:%#v,rid:%s", err, query, rid)
 		_ = resp.WriteError(http.StatusBadRequest, &metadata.RespError{Msg: srvData.ccErr.Errorf(common.CCErrCommHTTPDoRequestFailed)})
 		return
 	}
@@ -151,7 +151,9 @@ func (s *Service) CreatePlat(req *restful.Request, resp *restful.Response) {
 
 	// set field default value
 	input[common.BKStatus] = "1"
-	input[common.BKLastEditor] = input[common.BKCreator]
+	user := util.GetUser(req.Request.Header)
+	input[common.BKCreator] = user
+	input[common.BKLastEditor] = user
 
 	// bk_cloud_name is required and unique
 	_, ok := input[common.BKCloudNameField]
@@ -225,9 +227,9 @@ func (s *Service) DeletePlat(req *restful.Request, resp *restful.Response) {
 		return
 	}
 	if 0 == platID {
-		blog.Errorf("DelPlat search host, input:%+v,rid:%s", platID, srvData.rid)
-		// try delete default area. tip: has host
-		_ = resp.WriteError(http.StatusInternalServerError, &meta.RespError{Msg: srvData.ccErr.Errorf(common.CCErrTopoHasHostCheckFailed)})
+		blog.Errorf("DelPlat failed, can't delete default cloud area, input:%+v,rid:%s", platID, srvData.rid)
+		// can't delete default cloud area
+		_ = resp.WriteError(http.StatusInternalServerError, &meta.RespError{Msg: srvData.ccErr.Error(common.CCErrDeleteDefaultCloudAreaFail)})
 		return
 	}
 
@@ -354,6 +356,8 @@ func (s *Service) UpdatePlat(req *restful.Request, resp *restful.Response) {
 	}
 
 	// update plat
+	user := util.GetUser(req.Request.Header)
+	input[common.BKLastEditor] = user
 	updateOption := &meta.UpdateOption{
 		Data: input,
 		Condition: map[string]interface{}{

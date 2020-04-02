@@ -13,6 +13,7 @@
 package logics
 
 import (
+	"fmt"
 	"reflect"
 
 	"configcenter/src/common"
@@ -27,14 +28,78 @@ func (lgc *Logics) SearchVpc(kit *rest.Kit, accountID int64, vpcOpt *metadata.Se
 	accountConf, err := lgc.GetCloudAccountConf(accountID)
 	if err != nil {
 		blog.Errorf("SearchVpc failed, rid:%s, accountID:%d, vpcOpt:%+v, err:%+v", kit.Rid, accountID, vpcOpt, err)
-		return nil, kit.CCError.CCError(common.CCErrCommDBSelectFailed)
+		return nil, kit.CCError.CCError(common.CCErrCloudVpcGetFail)
 	}
-	result, err := lgc.GetVpcHostCnt(*accountConf, vpcOpt.Region)
+
+	result, err := lgc.GetVpcHostCntInOneRegion(*accountConf, vpcOpt.Region)
 	if err != nil {
 		blog.Errorf("SearchVpc failed, rid:%s, accountConf:%+v, vpcOpt:%+v, err:%+v", kit.Rid, accountConf, vpcOpt, err)
-		return nil, kit.CCError.CCError(common.CCErrCloudVendorInterfaceCalledFailed)
+		return nil, kit.CCError.CCError(common.CCErrCloudVpcGetFail)
 	}
+
+	if len(result.Info) == 0 {
+		return result, nil
+	}
+
+	vpcIDs := make([]string, 0)
+	for _, info := range result.Info {
+		vpcIDs = append(vpcIDs, info.VpcID)
+	}
+
+	vpcCloud, err := lgc.GetVpcCloudArea(kit, vpcIDs)
+	if err != nil {
+		blog.Errorf("SearchVpc failed, rid:%s, accountConf:%+v, vpcOpt:%+v, err:%+v", kit.Rid, accountConf, vpcOpt, err)
+		return nil, kit.CCError.CCError(common.CCErrCloudVpcGetFail)
+	}
+
+	for i, info := range result.Info {
+		if cloudID, ok := vpcCloud[info.VpcID]; ok {
+			result.Info[i].CloudID = cloudID
+		} else {
+			result.Info[i].CloudID = -1
+		}
+	}
+
 	return result, nil
+}
+
+func (lgc *Logics) GetVpcCloudArea(kit *rest.Kit, vpcIDs []string) (map[string]int64, error) {
+	query := &metadata.QueryCondition{
+		Fields: []string{common.BKCloudIDField, common.BKVpcID},
+		Condition: mapstr.MapStr{common.BKVpcID: map[string]interface{}{
+			common.BKDBIN: vpcIDs,
+		}},
+		Page: metadata.BasePage{
+			Limit: common.BKNoLimit,
+		},
+	}
+
+	result, err := lgc.CoreAPI.CoreService().Instance().ReadInstance(kit.Ctx, kit.Header, common.BKInnerObjIDPlat, query)
+	if err != nil {
+		blog.Errorf("GetVpcCloudIDs fail, err:%s, query:%+v", err.Error(), *query)
+		return nil, err
+	}
+	if !result.Result {
+		blog.Errorf("GetVpcCloudIDs fail, err:%s, query:%+v", result.ErrMsg, *query)
+		return nil, fmt.Errorf("%s", result.ErrMsg)
+	}
+
+	ret := make(map[string]int64)
+	for _, info := range result.Data.Info {
+		cloudID, err := info.Int64(common.BKCloudIDField)
+		if err != nil {
+			blog.Errorf("GetVpcCloudIDs fail, err:%s, info:%+v", err.Error(), result.Data.Info)
+			return nil, err
+		}
+		vpcID, err := info.String(common.BKVpcID)
+		if err != nil {
+			blog.Errorf("GetVpcCloudIDs fail, err:%s, info:%+v", err.Error(), result.Data.Info)
+			return nil, err
+		}
+		ret[vpcID] = cloudID
+	}
+
+	return ret, nil
 }
 
 func (lgc *Logics) CreateSyncTask(kit *rest.Kit, task *metadata.CloudSyncTask) (*metadata.CloudSyncTask, error) {
@@ -58,7 +123,7 @@ func (lgc *Logics) CreateSyncTask(kit *rest.Kit, task *metadata.CloudSyncTask) (
 	return result, nil
 }
 
-func (lgc *Logics) SearchSyncTask(kit *rest.Kit, option *metadata.SearchCloudOption) (*metadata.MultipleCloudSyncTask, error) {
+func (lgc *Logics) SearchSyncTask(kit *rest.Kit, option *metadata.SearchSyncTaskOption) (*metadata.MultipleCloudSyncTask, error) {
 	// set default limit
 	if option.Page.Limit == 0 {
 		option.Page.Limit = common.BKDefaultLimit
@@ -86,13 +151,69 @@ func (lgc *Logics) SearchSyncTask(kit *rest.Kit, option *metadata.SearchCloudOpt
 		}
 	}
 
-	result, err := lgc.CoreAPI.CoreService().Cloud().SearchSyncTask(kit.Ctx, kit.Header, option)
+	result, err := lgc.CoreAPI.CoreService().Cloud().SearchSyncTask(kit.Ctx, kit.Header, &option.SearchCloudOption)
 	if err != nil {
 		blog.Errorf("SearchSyncTask failed, rid:%s, option:%+v, err:%+v", kit.Rid, option, err)
 		return nil, err
 	}
 
+	// 是否实时获取云厂商vpc下最新的主机数
+	if option.LastestHostCount {
+		if err := lgc.updateVpcHostCount(kit, result); err != nil {
+			blog.Errorf("SearchSyncTask failed, rid:%s, option:%+v, err:%+v", kit.Rid, option, err)
+			return nil, err
+		}
+	}
+
 	return result, nil
+}
+
+// 更新vpc对应的主机数
+func (lgc *Logics) updateVpcHostCount(kit *rest.Kit, multiTask *metadata.MultipleCloudSyncTask) error {
+	// 待更新主机数的vpc对象，获取其地址
+	vpcToUpdate := make(map[string]*metadata.VpcSyncInfo)
+	accountOption := make(map[int64]*metadata.SearchVpcHostCntOption)
+
+	for i, _ := range multiTask.Info {
+		task := multiTask.Info[i]
+		for j, _ := range task.SyncVpcs {
+			syncVpc := &task.SyncVpcs[j]
+			vpcToUpdate[syncVpc.VpcID] = syncVpc
+			if accountOption[task.AccountID] == nil {
+				accountOption[task.AccountID] = new(metadata.SearchVpcHostCntOption)
+			}
+			accountOption[task.AccountID].RegionVpcs = append(accountOption[task.AccountID].RegionVpcs, metadata.RegionVpc{
+				Region: syncVpc.Region,
+				VpcID:  syncVpc.VpcID,
+			})
+		}
+	}
+
+	// 获取所有vpc对应的主机数
+	allVpcHostCnt := make(map[string]int64)
+	for accountID, option := range accountOption {
+		// 获取所有的vpc对应的主机数
+		accountConf, err := lgc.GetCloudAccountConf(accountID)
+		if err != nil {
+			blog.Errorf("updateVpcHostCount failed, rid:%s, accountID:%d, err:%+v", kit.Rid, accountID, err)
+			return kit.CCError.CCError(common.CCErrCommDBSelectFailed)
+		}
+		vpcHostCnt, err := lgc.GetVpcHostCnt(*accountConf, *option)
+		if err != nil {
+			blog.Errorf("updateVpcHostCount failed, rid:%s, accountID:%d, err:%+v", kit.Rid, accountID, err)
+			return kit.CCError.CCError(common.CCErrCloudVpcGetFail)
+		}
+		for vpcID, hostCnt := range vpcHostCnt {
+			allVpcHostCnt[vpcID] = hostCnt
+		}
+	}
+
+	// 更新返回结果里vpc对应的主机数
+	for vpcID, _ := range vpcToUpdate {
+		vpcToUpdate[vpcID].VpcHostCount = allVpcHostCnt[vpcID]
+	}
+
+	return nil
 }
 
 func (lgc *Logics) UpdateSyncTask(kit *rest.Kit, taskID int64, option map[string]interface{}) error {
@@ -202,7 +323,7 @@ func (lgc *Logics) SearchSyncRegion(kit *rest.Kit, option *metadata.SearchSyncRe
 	result, err := lgc.GetRegionsInfo(*accountConf, option.WithHostCount)
 	if err != nil {
 		blog.Errorf("SearchSyncRegion failed, rid:%s, option:%+v, err:%+v", kit.Rid, option, err)
-		return nil, kit.CCError.CCError(common.CCErrCloudVendorInterfaceCalledFailed)
+		return nil, kit.CCError.CCError(common.CCErrCloudRegionGetFail)
 	}
 
 	return result, nil

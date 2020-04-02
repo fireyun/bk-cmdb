@@ -10,7 +10,6 @@ import (
 	"configcenter/src/common/blog"
 	"configcenter/src/common/mapstr"
 	"configcenter/src/common/metadata"
-	ccom "configcenter/src/scene_server/cloud_server/common"
 	"configcenter/src/scene_server/cloud_server/logics"
 	"configcenter/src/storage/dal"
 )
@@ -45,9 +44,10 @@ func (h *HostSyncor) Sync(task *metadata.CloudSyncTask) error {
 		return err
 	}
 	if len(hostResource.HostResource) == 0 {
-		blog.Infof("hostSyncor%d HostResource is empty, taskid:%d", h.id, task.TaskID)
+		blog.V(4).Infof("hostSyncor%d HostResource is empty, taskid:%d", h.id, task.TaskID)
 		return nil
 	}
+	hostResource.AccountConf = accountConf
 	hostResource.TaskID = task.TaskID
 	blog.V(4).Infof("hostSyncor%d, taskid:%d, vpc count:%d", h.id, task.TaskID, len(hostResource.HostResource))
 
@@ -61,13 +61,13 @@ func (h *HostSyncor) Sync(task *metadata.CloudSyncTask) error {
 	// 根据主机实例id获取mongo中的主机信息,并获取有差异的主机
 	diffHosts, err := h.getDiffHosts(hostResource)
 	if err != nil {
-		blog.Errorf("hostSyncor%d getDiffHosts err, taskid:%d, err:%s", h.id, task.TaskID, err.Error())
+		blog.Errorf("hostSyncor%d getDicloud_server/logics/auditlog.goffHosts err, taskid:%d, err:%s", h.id, task.TaskID, err.Error())
 		return err
 	}
 
 	// 没差异则结束
 	if len(diffHosts) == 0 {
-		blog.V(3).Infof("hostSyncor%d no diff hosts for taskid:%d", h.id, task.TaskID)
+		blog.V(4).Infof("hostSyncor%d no diff hosts for taskid:%d", h.id, task.TaskID)
 		return nil
 	}
 
@@ -115,7 +115,7 @@ func (h *HostSyncor) Sync(task *metadata.CloudSyncTask) error {
 	}
 
 	costTime := time.Since(startTime) / time.Second
-	blog.V(3).Infof("hostSyncor%d finish SyncCloudHost, costTime:%ds, syncResult.Detail:%#v, syncResult.FailInfo:%#v",
+	blog.Infof("hostSyncor%d finish SyncCloudHost, costTime:%ds, syncResult.Detail:%#v, syncResult.FailInfo:%#v",
 		h.id, costTime, syncResult.Detail, syncResult.FailInfo)
 
 	return nil
@@ -150,10 +150,12 @@ func (h *HostSyncor) getDiffHosts(hostResource *metadata.CloudHostResource) (map
 	hosts := make([]*metadata.CloudHost, 0)
 	for _, hostRes := range hostResource.HostResource {
 		for _, host := range hostRes.Instances {
+			host.InstanceState = metadata.CloudHostStatusIDs[host.InstanceState]
 			hosts = append(hosts, &metadata.CloudHost{
-				Instance: *host,
-				CloudID:  hostRes.CloudID,
-				SyncDir:  hostRes.Vpc.SyncDir,
+				Instance:   *host,
+				CloudID:    hostRes.CloudID,
+				VendorName: metadata.VendorNameIDs[hostResource.AccountConf.VendorName],
+				SyncDir:    hostRes.Vpc.SyncDir,
 			})
 		}
 	}
@@ -178,7 +180,7 @@ func (h *HostSyncor) getDiffHosts(hostResource *metadata.CloudHostResource) (map
 		if _, ok := localIdHostsMap[h.InstanceId]; ok {
 			lh := localIdHostsMap[h.InstanceId]
 			// 判断云主机和本地主机是否有差异，有则需要更新
-			if ccom.CovertInstState(h.InstanceState) != lh.InstanceState || h.PublicIp != lh.PublicIp ||
+			if h.InstanceState != lh.InstanceState || h.PublicIp != lh.PublicIp ||
 				h.PrivateIp != lh.PrivateIp || h.CloudID != lh.CloudID {
 				diffHosts["update"] = append(diffHosts["update"], h)
 			}
@@ -192,6 +194,7 @@ func (h *HostSyncor) getDiffHosts(hostResource *metadata.CloudHostResource) (map
 // 同步有差异的主机数据
 func (h *HostSyncor) syncDiffHosts(diffhosts map[string][]*metadata.CloudHost) (*metadata.SyncResult, error) {
 	syncResult := new(metadata.SyncResult)
+	syncResult.FailInfo.IPError = make(map[string]string)
 	var result *metadata.SyncResult
 	var err error
 	for op, hosts := range diffhosts {
@@ -291,10 +294,10 @@ func (h *HostSyncor) createCloudArea(vpc *metadata.VpcSyncInfo, accountConf *met
 		common.BKVpcName:         vpc.VpcName,
 		common.BKReion:           vpc.Region,
 		common.BKCloudAccountID:  accountConf.AccountID,
-		common.BKCreator:         common.CCSystemOperatorUserName,
+		common.BKCreator:         common.BKCloudSyncUser,
+		common.BKLastEditor:      common.BKCloudSyncUser,
 		common.BkSupplierAccount: fmt.Sprintf("%d", common.BKDefaultSupplierID),
 		common.BKStatus:          "1",
-		common.BKLastEditor:      common.CCSystemOperatorUserName,
 	}
 
 	instInfo := &metadata.CreateModelInstance{
@@ -317,98 +320,154 @@ func (h *HostSyncor) createCloudArea(vpc *metadata.VpcSyncInfo, accountConf *met
 
 // 获取本地数据库中的主机信息
 func (h *HostSyncor) getLocalHosts(instanceIds []string) ([]*metadata.CloudHost, error) {
-	cond := mapstr.MapStr{common.BKCloudInstIDField: mapstr.MapStr{common.BKDBIN: instanceIds}}
 	result := make([]*metadata.CloudHost, 0)
-	err := h.db.Table(common.BKTableNameBaseHost).Find(cond).All(context.Background(), &result)
-	if err != nil {
-		blog.Errorf("getLocalHosts err:%v", err.Error())
+	cond := mapstr.MapStr{common.BKCloudInstIDField: mapstr.MapStr{common.BKDBIN: instanceIds}}
+	query := &metadata.QueryCondition{
+		Condition: cond,
+	}
+	res, err := h.logics.CoreAPI.CoreService().Instance().ReadInstance(context.Background(), header, common.BKInnerObjIDHost, query)
+	if nil != err {
+		blog.Errorf("getLocalHosts failed, error: %v query:%#v", err, query)
 		return nil, err
 	}
+	if false == res.Result {
+		blog.Errorf("getLocalHosts failed, query:%#v, err code:%d, err msg:%s", query, res.Code, res.ErrMsg)
+		return nil, fmt.Errorf("%s", res.ErrMsg)
+	}
+	if len(res.Data.Info) == 0 {
+		return nil, nil
+	}
+	for _, host := range res.Data.Info {
+		instID, _ := host.String(common.BKCloudInstIDField)
+		hostStatus, _ := host.String(common.BKCloudHostStatusField)
+		privateIp, _ := host.String(common.BKHostInnerIPField)
+		publicIp, _ := host.String(common.BKHostOuterIPField)
+		cloudID, _ := host.Int64(common.BKCloudIDField)
+		hostID, _ := host.Int64(common.BKHostIDField)
+		result = append(result, &metadata.CloudHost{
+			Instance: metadata.Instance{
+				InstanceId:    instID,
+				InstanceState: hostStatus,
+				PrivateIp:     privateIp,
+				PublicIp:      publicIp,
+			},
+			CloudID: cloudID,
+			HostID:  hostID,
+		})
+	}
+
 	return result, nil
 }
 
 // 添加云主机到本地数据库和主机资源池目录对应关系
 func (h *HostSyncor) addHosts(hosts []*metadata.CloudHost) (*metadata.SyncResult, error) {
 	syncResult := new(metadata.SyncResult)
+	syncResult.FailInfo.IPError = make(map[string]string)
 	for _, host := range hosts {
-		id, err := h.db.NextSequence(context.Background(), common.BKTableNameBaseHost)
-		if nil != err {
-			blog.Errorf("addHosts failed, generate id failed, err: %s", err.Error())
+		_, err := h.addHost(host)
+		if err != nil {
+			blog.Errorf("addHosts err:%s", err.Error())
 			syncResult.FailInfo.Count++
 			syncResult.FailInfo.IPError[host.PrivateIp] = err.Error()
-			continue
-		}
-		host.HostID = int64(id)
-		ts := metadata.Now()
-		hostSyncInfo := metadata.HostSyncInfo{
-			HostID:        host.HostID,
-			CloudID:       host.CloudID,
-			InstanceId:    host.InstanceId,
-			InstanceName:  host.InstanceName,
-			PrivateIp:     host.PrivateIp,
-			PublicIp:      host.PublicIp,
-			InstanceState: host.InstanceState,
-			OsName:        host.OsName,
-			OwnerID:       fmt.Sprintf("%d", common.BKDefaultSupplierID),
-			CreateTime:    ts,
-			LastTime:      ts,
-		}
-		if err := h.db.Table(common.BKTableNameBaseHost).Insert(context.Background(), hostSyncInfo); err != nil {
-			blog.Errorf("addHosts insert err:%v", err.Error())
-			syncResult.FailInfo.Count++
-			syncResult.FailInfo.IPError[host.PrivateIp] = err.Error()
-			continue
 		} else {
 			syncResult.SuccessInfo.Count++
 			syncResult.SuccessInfo.IPs = append(syncResult.SuccessInfo.IPs, host.PrivateIp)
-		}
-
-		// 获取资源池目录信息
-		cond := mapstr.MapStr{common.BKModuleIDField: host.SyncDir}
-		result := make([]*metadata.ModuleInst, 0)
-		err = h.db.Table(common.BKTableNameBaseModule).Find(cond).All(context.Background(), &result)
-		if err != nil {
-			blog.Errorf("resource dir find err:%v", err.Error())
-			return nil, err
-		}
-		if len(result) == 0 {
-			blog.Errorf("resource dir %d is not exist", host.SyncDir)
-			return nil, fmt.Errorf("resource dir %d is not exist", host.SyncDir)
-		}
-
-		// 增加主机资源池目录对应关系
-		module := result[0]
-		modulehost := metadata.ModuleHost{
-			AppID:    module.BizID,
-			HostID:   host.HostID,
-			ModuleID: module.ModuleID,
-			SetID:    module.ParentID,
-			OwnerID:  fmt.Sprintf("%d", common.BKDefaultSupplierID),
-		}
-		if err := h.db.Table(common.BKTableNameModuleHostConfig).Insert(context.Background(), modulehost); err != nil {
-			blog.Errorf("add module host relationship err:%s", err.Error())
-			return nil, fmt.Errorf("add module host relationship err:%s", err.Error())
 		}
 	}
 
 	return syncResult, nil
 }
 
+// 添加云主机
+func (h *HostSyncor) addHost(cHost *metadata.CloudHost) (string, error) {
+	host := mapstr.MapStr{
+		common.BKCloudIDField:         cHost.CloudID,
+		common.BKCloudInstIDField:     cHost.InstanceId,
+		common.BKHostInnerIPField:     cHost.PrivateIp,
+		common.BKHostOuterIPField:     cHost.PublicIp,
+		common.BKCloudHostStatusField: cHost.InstanceState,
+		common.BKCloudVendor:          cHost.VendorName,
+	}
+	input := &metadata.CreateModelInstance{
+		Data: host,
+	}
+	var err error
+	result, err := h.logics.CoreAPI.CoreService().Instance().CreateInstance(context.Background(), header, common.BKInnerObjIDHost, input)
+	if err != nil {
+		blog.Errorf("addHost fail,err:%s, input:%+v", err.Error(), host)
+		return "", err
+	}
+	if !result.Result {
+		blog.Errorf("addHost fail,err:%s, input:%+v", result.ErrMsg, host)
+		return "", fmt.Errorf("%s", result.ErrMsg)
+	}
+
+	hostID := int64(result.Data.Created.ID)
+
+	// 获取资源池业务id
+	condition := mapstr.MapStr{
+		common.BKDefaultField: common.DefaultAppFlag,
+	}
+	cond := &metadata.QueryCondition{
+		Fields:    []string{common.BKAppIDField},
+		Condition: condition,
+	}
+	res, err := h.logics.CoreAPI.CoreService().Instance().ReadInstance(context.Background(), header, common.BKInnerObjIDApp, cond)
+	if err != nil {
+		blog.Errorf("addHost fail,err:%s, cond:%+v", err.Error(), *cond)
+		return "", err
+	}
+	if !result.Result {
+		blog.Errorf("addHost fail,err:%s, cond:%+v", result.ErrMsg, *cond)
+		return "", fmt.Errorf("%s", result.ErrMsg)
+	}
+
+	if len(res.Data.Info) == 0 {
+		blog.Errorf("addHost fail,err:%s, cond:%+v", "no default biz is found", *cond)
+		return "", fmt.Errorf("%s", "no default biz is found")
+	}
+
+	appID, err := res.Data.Info[0].Int64(common.BKAppIDField)
+	if err != nil {
+		blog.Errorf("addHost fail,err:%s, cond:%+v", err.Error(), *cond)
+		return "", err
+	}
+
+	// 添加主机和同步目录模块的关系
+	opt := &metadata.TransferHostToInnerModule{
+		ApplicationID: appID,
+		ModuleID:      cHost.SyncDir,
+		HostID:        []int64{hostID},
+	}
+	hResult, err := h.logics.CoreAPI.CoreService().Host().TransferToInnerModule(context.Background(), header, opt)
+	if err != nil {
+		blog.Errorf("addHost fail,err:%s, opt:%+v", err.Error(), *opt)
+		return "", err
+	}
+	if !hResult.Result {
+		blog.Errorf("addHost fail,err:%s, opt:%+v", hResult.ErrMsg, *opt)
+		if len(hResult.Data) > 0 {
+			return "", fmt.Errorf("%s", hResult.Data[0].Message)
+		}
+		return "", hResult.CCError()
+	}
+
+	return cHost.PrivateIp, nil
+}
+
 // 更新云主机到本地数据库
 func (h *HostSyncor) updateHosts(hosts []*metadata.CloudHost) (*metadata.SyncResult, error) {
 	syncResult := new(metadata.SyncResult)
+	syncResult.FailInfo.IPError = make(map[string]string)
 	for _, host := range hosts {
-		cond := mapstr.MapStr{common.BKCloudInstIDField: host.InstanceId}
 		updateInfo := mapstr.MapStr{
 			common.BKCloudIDField:         host.CloudID,
 			common.BKHostInnerIPField:     host.PrivateIp,
 			common.BKHostOuterIPField:     host.PublicIp,
 			common.BKCloudHostStatusField: host.InstanceState,
-			common.BKHostNameField:        host.InstanceName,
-			common.LastTimeField:          metadata.Now(),
 		}
-		if err := h.db.Table(common.BKTableNameBaseHost).Update(context.Background(), cond, updateInfo); err != nil {
-			blog.Errorf("updateHosts update err:%v", err.Error())
+		if err := h.updateHost(host.InstanceId, updateInfo); err != nil {
+			blog.Errorf("updateHosts err:%v", err.Error())
 			syncResult.FailInfo.Count++
 			syncResult.FailInfo.IPError[host.PrivateIp] = err.Error()
 			continue
@@ -421,11 +480,29 @@ func (h *HostSyncor) updateHosts(hosts []*metadata.CloudHost) (*metadata.SyncRes
 	return nil, nil
 }
 
+// 更新云主机
+func (h *HostSyncor) updateHost(cloudInstID string, updateInfo map[string]interface{}) error {
+	input := &metadata.UpdateOption{}
+	input.Condition = map[string]interface{}{common.BKCloudInstIDField: cloudInstID}
+	input.Data = updateInfo
+	uResult, err := h.logics.CoreAPI.CoreService().Instance().UpdateInstance(context.Background(), header, common.BKInnerObjIDHost, input)
+	if err != nil {
+		blog.Errorf("updateHost fail,err:%s, input:%+v", err.Error(), *input)
+		return err
+	}
+	if !uResult.Result {
+		blog.Errorf("updateHost fail,err:%s, input:%+v", uResult.ErrMsg, *input)
+		return uResult.CCError()
+	}
+	return nil
+}
+
 // 更新任务同步状态
 func (h *HostSyncor) updateTaskState(taskid int64, status string, syncStatusDesc *metadata.SyncStatusDesc) error {
 	option := mapstr.MapStr{common.BKCloudSyncStatus: status}
 	if status == metadata.CloudSyncSuccess || status == metadata.CloudSyncFail {
-		option.Set(common.BKCloudLastSyncTime, metadata.Now())
+		ts := time.Now()
+		option.Set(common.BKCloudLastSyncTime, &ts)
 		option.Set(common.BKCloudSyncStatusDescription, syncStatusDesc)
 	}
 

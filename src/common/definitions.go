@@ -869,7 +869,7 @@ const (
 	BKHTTPCookieLanugageKey = "blueking_language"
 	//BKSessionLanugageKey = "language"
 	BKHTTPSupplierID     = "bk_supplier_id"
-	BKHTTPRequestAppCode = "req_app_code"
+	BKHTTPRequestAppCode = "Bk-App-Code"
 
 	// BKHTTPCCRequestID cc request id cc_request_id
 	BKHTTPCCRequestID = "Cc_Request_Id"
@@ -996,6 +996,8 @@ const (
 const (
 	BKProcInstanceOpUser             = "proc instance user"
 	BKSynchronizeDataTaskDefaultUser = "synchronize task user"
+
+	BKCloudSyncUser = "cloud_sync_user"
 )
 
 const (
@@ -1016,6 +1018,7 @@ const (
 	RedisCloudSyncInstancePendingStart        = BKCacheKeyV3Prefix + "cloudsyncinstancependingstart:list"
 	RedisCloudSyncInstanceStarted             = BKCacheKeyV3Prefix + "cloudsyncinstancestarted:list"
 	RedisCloudSyncInstancePendingStop         = BKCacheKeyV3Prefix + "cloudsyncinstancependingstop:list"
+	RedisMongoCacheSyncKey                    = BKCacheKeyV3Prefix + "mongodb:cache"
 )
 
 // association fields
@@ -1154,4 +1157,5 @@ const (
 	BKVpcID                      = "bk_vpc_id"
 	BKVpcName                    = "bk_vpc_name"
 	BKReion                      = "bk_region"
+	BKCloudSyncVpcs              = "bk_sync_vpcs"
 )

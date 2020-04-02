@@ -183,7 +183,6 @@ func (c *awsClient) getInstances(region string, opt *ccom.RequestOpt) ([]*metada
 			for _, inst := range reservation.Instances {
 				instances = append(instances, &metadata.Instance{
 					InstanceId:    *inst.InstanceId,
-					InstanceName:  *inst.InstanceId,
 					PrivateIp:     *inst.PrivateIpAddress,
 					PublicIp:      *inst.PublicIpAddress,
 					InstanceState: ccom.CovertInstState(*inst.State.Name),
@@ -269,7 +268,7 @@ func (c *awsClient) newDescribeVpcsInput(opt *ccom.RequestOpt) *ec2.DescribeVpcs
 	// 按API要求，设置的MaxResults的取值范围为5～1000，不在该范围内的值会报错，不在该范围的设为最大值
 	if opt.Limit != nil {
 		limit := *opt.Limit
-		if  *opt.Limit < awsMinPageSize || *opt.Limit > awsMaxPageSize {
+		if *opt.Limit < awsMinPageSize || *opt.Limit > awsMaxPageSize {
 			limit = awsMaxPageSize
 		}
 		input.MaxResults = &limit
@@ -295,7 +294,7 @@ func (c *awsClient) newDescribeInstancesInput(opt *ccom.RequestOpt) *ec2.Describ
 	// 按API要求，设置的MaxResults的取值范围为5～1000，不在该范围内的值会报错，不在该范围的设为最大值
 	if opt.Limit != nil {
 		limit := *opt.Limit
-		if  *opt.Limit < awsMinPageSize || *opt.Limit > awsMaxPageSize {
+		if *opt.Limit < awsMinPageSize || *opt.Limit > awsMaxPageSize {
 			limit = awsMaxPageSize
 		}
 		input.MaxResults = &limit

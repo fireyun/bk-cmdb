@@ -460,6 +460,8 @@ const (
 	CCErrorTopoSearchModelAttriFailedPleaseRefresh = 1101101
 	CCErrorTopoOnlyResourceDirNameCanBeUpdated     = 1101102
 	CCErrorTopoOperateReourceDirFailNotExist       = 1101103
+	CCErrorTopoResourceDirIdleModuleCanNotRemove   = 1101104
+	CCErrorTopoResourceDirUsedInCloudSync          = 1101105
 
 	// object controller 1102XXX
 
@@ -669,6 +671,7 @@ const (
 	CCErrHostPlatCloudNameIsrequired                          = 1110063
 	CCErrHostPlatCloudNameAlreadyExist                        = 1110064
 	CCErrHostFindManyCloudAreaAddHostCountFieldFail           = 1110065
+	CCErrDeleteDefaultCloudAreaFail                           = 1110066
 
 	// web 1111XXX
 	CCErrWebFileNoFound                 = 1111001
@@ -812,6 +815,15 @@ const (
 	CCErrCloudVendorInterfaceCalledFailed = 1118008
 	CCErrCloudAccountSecretIDAlreadyExist = 1118009
 	CCErrCloudTaskAlreadyExistInAccount   = 1118010
+	CCErrCloudAccoutIDSecretWrong         = 1118011
+	CCErrCloudHttpRequestTimeout          = 1118012
+	CCErrCloudVpcGetFail                  = 1118013
+	CCErrCloudRegionGetFail               = 1118014
+	CCErrCloudSyncDirNoChosen             = 1118015
+	CCErrCloudSyncDirNoExist              = 1118016
+	CCErrCloudIDNoProvided                = 1118017
+	CCErrCloudIDNoExist                   = 1118018
+	CCErrDefaultCloudIDProvided           = 1118019
 
 	/** TODO: 以下错误码需要改造 **/
 
