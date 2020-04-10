@@ -15,6 +15,7 @@ package local
 import (
 	"context"
 	"errors"
+	"fmt"
 	"reflect"
 	"strings"
 	"time"
@@ -47,6 +48,7 @@ type MongoConf struct {
 	MaxOpenConns   uint64
 	MaxIdleConns   uint64
 	URI            string
+	RsName         string
 }
 
 // NewMgo returns new RDB
@@ -55,11 +57,15 @@ func NewMgo(config MongoConf, timeout time.Duration) (*Mongo, error) {
 	if nil != err {
 		return nil, err
 	}
+	if config.RsName == "" {
+		return nil, fmt.Errorf("rsName not set")
+	}
 
 	conOpt := options.ClientOptions{
 		MaxPoolSize:    &config.MaxOpenConns,
 		MinPoolSize:    &config.MaxIdleConns,
 		ConnectTimeout: &timeout,
+		ReplicaSet:     &config.RsName,
 	}
 
 	client, err := mongo.NewClient(options.Client().ApplyURI(config.URI), &conOpt)
