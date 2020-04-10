@@ -13,11 +13,11 @@
 package cloudvendor
 
 import (
-	"os"
-	"testing"
-
 	"configcenter/src/common/metadata"
 	ccom "configcenter/src/scene_server/cloud_server/common"
+	"os"
+	"sync"
+	"testing"
 )
 
 var tcTestClient VendorClient
@@ -36,8 +36,7 @@ func init() {
 }
 
 func TestTCGetRegions(t *testing.T) {
-	opt := &ccom.RequestOpt{}
-	regionSet, err := tcTestClient.GetRegions(opt)
+	regionSet, err := tcTestClient.GetRegions()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -47,7 +46,7 @@ func TestTCGetRegions(t *testing.T) {
 }
 
 func TestTCGetVpcs(t *testing.T) {
-	opt := &ccom.RequestOpt{}
+	opt := &ccom.VpcOpt{}
 	region := "ap-guangzhou"
 	vpcsInfo, err := tcTestClient.GetVpcs(region, opt)
 	if err != nil {
@@ -60,7 +59,7 @@ func TestTCGetVpcs(t *testing.T) {
 }
 
 func TestTCGetInstances(t *testing.T) {
-	opt := &ccom.RequestOpt{}
+	opt := &ccom.InstanceOpt{}
 	region := "ap-hongkong"
 	instancesInfo, err := tcTestClient.GetInstances(region, opt)
 	if err != nil {
@@ -73,7 +72,7 @@ func TestTCGetInstances(t *testing.T) {
 }
 
 func TestTCGetInstancesTotalCnt(t *testing.T) {
-	opt := &ccom.RequestOpt{}
+	opt := &ccom.InstanceOpt{}
 	region := "ap-hongkong"
 	count, err := tcTestClient.GetInstancesTotalCnt(region, opt)
 	if err != nil {
@@ -83,10 +82,11 @@ func TestTCGetInstancesTotalCnt(t *testing.T) {
 }
 
 func TestTCRequestOpt(t *testing.T) {
-	//opt := &ccom.RequestOpt{Limit: ccom.Int64Ptr(int64(1))}
-	opt := &ccom.RequestOpt{
-		Limit:   ccom.Int64Ptr(int64(10)),
-		Filters: []*ccom.Filter{&ccom.Filter{ccom.StringPtr("vpc-name"), ccom.StringPtrs([]string{"Default"})}},
+	opt := &ccom.VpcOpt{
+		BaseOpt: ccom.BaseOpt{
+			Filters: []*ccom.Filter{{ccom.StringPtr("vpc-id"), ccom.StringPtrs([]string{"vpc-6jhti3nx"})}},
+			Limit:   1,
+		},
 	}
 	region := "ap-guangzhou"
 	vpcsInfo, err := tcTestClient.GetVpcs(region, opt)
@@ -97,4 +97,31 @@ func TestTCRequestOpt(t *testing.T) {
 	for i, vpc := range vpcsInfo.VpcSet {
 		t.Logf("i:%d, vpc:%#v\n", i, *vpc)
 	}
+}
+
+func TestTCConcurrence(t *testing.T) {
+	var wg sync.WaitGroup
+	cnt := 10
+	wg.Add(cnt)
+	for i:=1;i<=cnt;i++{
+		go func(idx int) {
+			defer wg.Done()
+			opt := &ccom.VpcOpt{
+				BaseOpt: ccom.BaseOpt{
+					Filters: []*ccom.Filter{{ccom.StringPtr("vpc-id"), ccom.StringPtrs([]string{"vpc-6jhti3nx"})}},
+					Limit:   ccom.MaxLimit,
+				},
+			}
+			region := "ap-guangzhou"
+			vpcsInfo, err := tcTestClient.GetVpcs(region, opt)
+			if err != nil {
+				t.Fatal(err)
+			}
+			t.Logf("g%d vpcs count:%#v\n", idx, vpcsInfo.Count)
+			for i, vpc := range vpcsInfo.VpcSet {
+				t.Logf("g%d i:%d, vpc:%#v\n", idx, i, *vpc)
+			}
+		}(i)
+	}
+	wg.Wait()
 }
