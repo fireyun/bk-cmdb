@@ -95,7 +95,7 @@ var _ = Describe("cloud area test", func() {
 	var _ = Describe("cloud area test batch create", func() {
 
 		It("batch create with normal data", func() {
-			rsp, err := hostServerClient.CreateManyCloudArea(context.Background(), header, []map[string]interface{}{tmpTestData})
+			rsp, err := hostServerClient.CreateManyCloudArea(context.Background(), header, map[string]interface{}{"data":[]interface{}{tmpTestData}})
 			util.RegisterResponse(rsp)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(rsp.Result).To(Equal(true))
@@ -103,7 +103,7 @@ var _ = Describe("cloud area test", func() {
 
 		It("batch create with cloud area which is already exist", func() {
 			tmpTestData["bk_cloud_name"] = testData1["bk_cloud_name"]
-			rsp, err := hostServerClient.CreateManyCloudArea(context.Background(), header, []map[string]interface{}{tmpTestData})
+			rsp, err := hostServerClient.CreateManyCloudArea(context.Background(), header, map[string]interface{}{"data":[]interface{}{tmpTestData}})
 			util.RegisterResponse(rsp)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(rsp.Result).To(Equal(true))
@@ -114,7 +114,7 @@ var _ = Describe("cloud area test", func() {
 		It("batch create with cloud vendor which is not valid", func() {
 			tmpTestData["bk_cloud_name"] = "best mind"
 			tmpTestData["bk_cloud_vendor"] = "hello"
-			rsp, err := hostServerClient.CreateManyCloudArea(context.Background(), header, []map[string]interface{}{tmpTestData})
+			rsp, err := hostServerClient.CreateManyCloudArea(context.Background(), header, map[string]interface{}{"data":[]interface{}{tmpTestData}})
 			util.RegisterResponse(rsp)
 			Expect(err).NotTo(HaveOccurred())
 			Expect(rsp.Result).To(Equal(true))

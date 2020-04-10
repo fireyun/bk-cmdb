@@ -227,15 +227,23 @@ func (s *Service) createPlat(header http.Header, input mapstr.MapStr) (int64, er
 // CreatePlatBatch create plat instance in batch
 func (s *Service) CreatePlatBatch(req *restful.Request, resp *restful.Response) {
 	srvData := s.newSrvComm(req.Request.Header)
-	input := make([]mapstr.MapStr, 0)
+	input := struct{
+		Data []mapstr.MapStr `json:"data"`
+	}{}
 	if err := json.NewDecoder(req.Request.Body).Decode(&input); nil != err {
 		blog.Errorf("CreatePlat , but decode body failed, err: %s,rid:%s", err.Error(), srvData.rid)
 		_ = resp.WriteError(http.StatusBadRequest, &meta.RespError{Msg: srvData.ccErr.Error(common.CCErrCommJSONUnmarshalFailed)})
 		return
 	}
-	result := make([]metadata.CreateManyCloudAreaElem, len(input))
 
-	for i, data := range input {
+	if len(input.Data) == 0 {
+		blog.Errorf("CreatePlat , input is empty, rid:%s", srvData.rid)
+		_ = resp.WriteError(http.StatusBadRequest, &meta.RespError{Msg: srvData.ccErr.Error(common.CCErrCommHTTPBodyEmpty)})
+		return
+	}
+
+	result := make([]metadata.CreateManyCloudAreaElem, len(input.Data))
+	for i, data := range input.Data {
 		cloudID, err := s.createPlat(req.Request.Header, data)
 		if err != nil {
 			blog.Errorf("CreatePlat failed, err: %s,rid:%s", err.Error(), srvData.rid)
