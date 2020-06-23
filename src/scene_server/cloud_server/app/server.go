@@ -14,6 +14,7 @@ package app
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"sync"
 	"time"
@@ -62,27 +63,26 @@ func Run(ctx context.Context, cancel context.CancelFunc, op *options.ServerOptio
 			continue
 		}
 
-		process.Config.MongoDB, err = engine.WithMongo()
-		if err != nil {
-			return err
-		}
-		process.Config.Redis, err = engine.WithRedis()
-		if err != nil {
-			return err
-		}
-		process.Config.Auth, err = engine.WithAuth()
-		if err != nil {
+		redisConf, err := engine.WithRedis()
+		if nil != err {
+			blog.Errorf("get redis conf failed: %s", err.Error())
 			return err
 		}
 
-		mongoConf := process.Config.MongoDB.GetMongoConf()
+		mongoConfig, err := engine.WithMongo()
+		if nil != err {
+			blog.Errorf("get mongo conf failed: %s", err.Error())
+			return err
+		}
+
+		mongoConf := mongoConfig.GetMongoConf()
 		db, err := local.NewMgo(mongoConf, time.Minute)
 		if err != nil {
 			return fmt.Errorf("connect mongo server failed, err: %s", err.Error())
 		}
 		process.Service.SetDB(db)
 
-		cache, err := redis.NewFromConfig(process.Config.Redis)
+		cache, err := redis.NewFromConfig(redisConf)
 		if err != nil {
 			return fmt.Errorf("connect redis server failed, err: %s", err.Error())
 		}
@@ -137,6 +137,16 @@ func (c *CloudServer) onHostConfigUpdate(previous, current cc.ProcessConfig) {
 	if len(current.ConfigMap) > 0 {
 		if c.Config == nil {
 			c.Config = new(options.Config)
+		}
+
+		// ignore err, cause ConfigMap is map[string]string
+		out, _ := json.MarshalIndent(current.ConfigMap, "", "  ")
+		blog.Infof("config updated: \n%s", out)
+
+		var err error
+		c.Config.Auth, err = authcenter.ParseConfigFromKV("auth", current.ConfigMap)
+		if err != nil {
+			blog.Errorf("parse auth center config failed: %v", err)
 		}
 	}
 }

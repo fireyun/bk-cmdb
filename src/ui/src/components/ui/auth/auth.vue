@@ -4,7 +4,9 @@
         v-cursor="{
             active: !isAuthorized,
             auth: resources
-        }">
+        }"
+        :class="{ disabled }"
+        @click="handleClick">
         <slot :disabled="disabled"></slot>
     </component>
 </template>
@@ -33,7 +35,13 @@
         computed: {
             resources () {
                 if (!this.auth.type) return []
-                return Array.isArray(this.auth.type) ? this.auth.type : [this.auth.type]
+                const types = Array.isArray(this.auth.type) ? this.auth.type : [this.auth.type]
+                return types.map(type => {
+                    return {
+                        ...this.auth,
+                        type: type
+                    }
+                })
             }
         },
         watch: {
@@ -59,6 +67,12 @@
                 this.isAuthorized = isPass
                 this.disabled = !isPass
                 this.$emit('update-auth', isPass)
+            },
+            handleClick () {
+                if (this.disabled) {
+                    return
+                }
+                this.$emit('click')
             }
         }
     }

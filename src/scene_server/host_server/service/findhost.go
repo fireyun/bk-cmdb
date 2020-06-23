@@ -22,6 +22,7 @@ import (
 	"configcenter/src/common/errors"
 	"configcenter/src/common/mapstruct"
 	meta "configcenter/src/common/metadata"
+	parse "configcenter/src/common/paraparse"
 	"configcenter/src/common/util"
 
 	"github.com/emicklei/go-restful"
@@ -35,6 +36,12 @@ func (s *Service) FindModuleHost(req *restful.Request, resp *restful.Response) {
 	if err := json.NewDecoder(req.Request.Body).Decode(body); err != nil {
 		blog.Errorf("find host failed with decode body err: %#v, rid:%s", err, srvData.rid)
 		_ = resp.WriteError(http.StatusBadRequest, &meta.RespError{Msg: defErr.Error(common.CCErrCommJSONUnmarshalFailed)})
+		return
+	}
+
+	if len(body.ModuleIDS) > common.BKMaxPageSize {
+		blog.Errorf("module length %d exceeds 1000, rid:%s", len(body.ModuleIDS), srvData.rid)
+		_ = resp.WriteError(http.StatusBadRequest, &meta.RespError{Msg: defErr.CCErrorf(common.CCErrExceedMaxOperationRecordsAtOnce, common.BKMaxPageSize)})
 		return
 	}
 
@@ -93,7 +100,18 @@ func (s *Service) ListResourcePoolHosts(req *restful.Request, resp *restful.Resp
 		_ = resp.WriteError(http.StatusInternalServerError, &meta.RespError{Msg: ccErr})
 		return
 	}
-	if appResult.Data.Count > 1 {
+
+	// only use biz with same supplier account if query returns multiple biz
+	bizData := appResult.Data.Info[0]
+	bizCount := 0
+	for _, biz := range appResult.Data.Info {
+		supplier, _ := biz.String(common.BkSupplierAccount)
+		if supplier == util.GetOwnerID(header) {
+			bizCount++
+			bizData = biz
+		}
+	}
+	if bizCount > 1 {
 		blog.Errorf("ListResourcePoolHosts failed, get multiple default app, result: %+v, rid: %s", appResult, rid)
 		ccErr := defErr.Error(common.CCErrCommGetMultipleObject)
 		_ = resp.WriteError(http.StatusInternalServerError, &meta.RespError{Msg: ccErr})
@@ -101,7 +119,6 @@ func (s *Service) ListResourcePoolHosts(req *restful.Request, resp *restful.Resp
 	}
 
 	// parse biz data
-	bizData := appResult.Data.Info[0]
 	biz := meta.BizBasicInfo{}
 	if err := mapstruct.Decode2Struct(bizData, &biz); err != nil {
 		blog.ErrorJSON("ListResourcePoolHosts failed, parse app data failed, bizData: %s, err: %s, rid: %s", bizData, err.Error(), rid)
@@ -119,7 +136,7 @@ func (s *Service) ListResourcePoolHosts(req *restful.Request, resp *restful.Resp
 		return
 	}
 	result := meta.NewSuccessResponse(hostResult)
-	_ = resp.WriteEntity(result)
+	_ = resp.WriteAsJson(result)
 }
 
 // ListHosts list host under business specified by path parameter
@@ -138,7 +155,7 @@ func (s *Service) ListBizHosts(req *restful.Request, resp *restful.Response) {
 		return
 	}
 	if key, err := parameter.Validate(); err != nil {
-		blog.ErrorJSON("ListBizHosts failed, decode body failed,parameter:%s, err: %#v, rid:%s", parameter, err, srvData.rid)
+		blog.ErrorJSON("ListBizHosts failed, Validate failed,parameter:%s, err: %s, rid:%s", parameter, err, srvData.rid)
 		ccErr := srvData.ccErr.CCErrorf(common.CCErrCommParamsInvalid, key)
 		_ = resp.WriteError(http.StatusBadRequest, &meta.RespError{Msg: ccErr})
 		return
@@ -161,10 +178,10 @@ func (s *Service) ListBizHosts(req *restful.Request, resp *restful.Response) {
 		return
 	}
 	result := meta.NewSuccessResponse(hostResult)
-	_ = resp.WriteEntity(result)
+	_ = resp.WriteAsJson(result)
 }
 
-func (s *Service) listBizHosts(header http.Header, bizID int64, parameter meta.ListHostsParameter) (result meta.ListHostResult, ccErr errors.CCErrorCoder) {
+func (s *Service) listBizHosts(header http.Header, bizID int64, parameter meta.ListHostsParameter) (result *meta.ListHostResult, ccErr errors.CCErrorCoder) {
 	ctx := util.NewContextFromHTTPHeader(header)
 	rid := util.ExtractRequestIDFromContext(ctx)
 	srvData := s.newSrvComm(header)
@@ -180,23 +197,57 @@ func (s *Service) listBizHosts(header http.Header, bizID int64, parameter meta.L
 		return result, defErr.CCErrorf(common.CCErrCommParamsInvalid, "bk_set_ids and set_cond can't both be set")
 	}
 
-	var setIDs []int64
-	var err error
-	if parameter.SetIDs != nil {
-		setIDs = parameter.SetIDs
-	} else {
-		setIDs, err = srvData.lgc.GetSetIDByCond(srvData.ctx, parameter.SetCond)
-		if err != nil {
-			blog.ErrorJSON("ListBizHosts failed, GetSetIDByCond %s failed, error: %s, rid:%s", parameter.SetCond, err.Error(), srvData.rid)
-			return result, defErr.CCError(common.CCErrCommHTTPDoRequestFailed)
+	setIDList := make([]int64, 0)
+	if parameter.SetCond != nil {
+		setCond := make(map[string]interface{})
+		if err := parse.ParseCommonParams(parameter.SetCond, setCond); err != nil {
+			blog.Errorf("parse set cond failed, err: %v, rid: %s", err, rid)
+			return nil, errors.New(common.CCErrCommParamsInvalid, "set_cond")
+		}
+
+		// set the app id condition
+		setCond[common.BKAppIDField] = bizID
+		query := meta.QueryCondition{
+			Fields:    []string{common.BKSetIDField},
+			Condition: setCond,
+		}
+
+		setList, setErr := s.CoreAPI.CoreService().Instance().ReadInstance(ctx, header, common.BKInnerObjIDSet, &query)
+		if setErr != nil {
+			blog.Errorf("get set with cond: %v failed, err: %v, rid: %s", setCond, setErr, rid)
+			return nil, errors.New(common.CCErrCommParamsInvalid, "set_cond")
+		}
+
+		if !setList.Result {
+			blog.Errorf("get set with cond: %v failed, err: %v, rid: %s", setCond, setErr, rid)
+			return nil, errors.New(setList.Code, setList.ErrMsg)
+		}
+
+		for _, set := range setList.Data.Info {
+			id, err := util.GetInt64ByInterface(set[common.BKSetIDField])
+			if err != nil {
+				blog.Errorf("get set id: %v failed, err: %v, rid: %s", set[common.BKSetIDField], err, rid)
+				return nil, errors.New(common.CCErrCommParamsInvalid, "bk_set_id")
+			}
+
+			if id == 0 {
+				continue
+			}
+
+			setIDList = append(setIDList, id)
 		}
 	}
 
-	option := meta.ListHosts{
+	if len(parameter.SetIDs) != 0 {
+		setIDList = append(setIDList, parameter.SetIDs...)
+	}
+
+	option := &meta.ListHosts{
 		BizID:              bizID,
-		SetIDs:             setIDs,
+		SetIDs:             setIDList,
 		ModuleIDs:          parameter.ModuleIDs,
 		HostPropertyFilter: parameter.HostPropertyFilter,
+		Fields:             parameter.Fields,
 		Page:               parameter.Page,
 	}
 	hostResult, err := s.CoreAPI.CoreService().Host().ListHosts(ctx, header, option)
@@ -228,9 +279,9 @@ func (s *Service) ListHostsWithNoBiz(req *restful.Request, resp *restful.Respons
 		return
 	}
 
-	parameter.Page.Limit = common.BKMaxPageSize
-	option := meta.ListHosts{
+	option := &meta.ListHosts{
 		HostPropertyFilter: parameter.HostPropertyFilter,
+		Fields:             parameter.Fields,
 		Page:               parameter.Page,
 	}
 	host, err := s.CoreAPI.CoreService().Host().ListHosts(ctx, header, option)
@@ -241,7 +292,7 @@ func (s *Service) ListHostsWithNoBiz(req *restful.Request, resp *restful.Respons
 	}
 
 	result := meta.NewSuccessResponse(host)
-	_ = resp.WriteEntity(result)
+	_ = resp.WriteAsJson(result)
 }
 
 // ListBizHostsTopo list hosts under business specified by path parameter with their topology information
@@ -259,7 +310,7 @@ func (s *Service) ListBizHostsTopo(req *restful.Request, resp *restful.Response)
 		return
 	}
 	if key, err := parameter.Validate(); err != nil {
-		blog.ErrorJSON("ListHostByTopoNode failed, decode body failed,parameter:%s, err: %#v, rid:%s", parameter, err, srvData.rid)
+		blog.ErrorJSON("ListHostByTopoNode failed, Validate failed,parameter:%s, err: %s, rid:%s", parameter, err, srvData.rid)
 		ccErr := srvData.ccErr.CCErrorf(common.CCErrCommParamsInvalid, key)
 		_ = resp.WriteError(http.StatusBadRequest, &meta.RespError{Msg: ccErr})
 		return
@@ -281,9 +332,10 @@ func (s *Service) ListBizHostsTopo(req *restful.Request, resp *restful.Response)
 	}
 
 	// search all hosts
-	option := meta.ListHosts{
+	option := &meta.ListHosts{
 		BizID:              bizID,
 		HostPropertyFilter: parameter.HostPropertyFilter,
+		Fields:             parameter.Fields,
 		Page:               parameter.Page,
 	}
 	hosts, err := s.CoreAPI.CoreService().Host().ListHosts(ctx, header, option)
@@ -295,7 +347,7 @@ func (s *Service) ListBizHostsTopo(req *restful.Request, resp *restful.Response)
 
 	if len(hosts.Info) == 0 {
 		result := meta.NewSuccessResponse(hosts)
-		_ = resp.WriteEntity(result)
+		_ = resp.WriteAsJson(result)
 		return
 	}
 
@@ -313,6 +365,7 @@ func (s *Service) ListBizHostsTopo(req *restful.Request, resp *restful.Response)
 	relationCond := meta.HostModuleRelationRequest{
 		ApplicationID: bizID,
 		HostIDArr:     hostIDs,
+		Fields:        []string{common.BKSetIDField, common.BKModuleIDField, common.BKHostIDField},
 	}
 	relations, err := srvData.lgc.GetConfigByCond(srvData.ctx, relationCond)
 	if nil != err {
@@ -348,7 +401,7 @@ func (s *Service) ListBizHostsTopo(req *restful.Request, resp *restful.Response)
 	}
 	sets, err := s.CoreAPI.CoreService().Instance().ReadInstance(ctx, header, common.BKInnerObjIDSet, query)
 	if err != nil {
-		blog.ErrorJSON("get set by condition: %s failed, err: %+v, rid: %s", cond.ToMapStr(), err, rid)
+		blog.ErrorJSON("get set by condition: %s failed, err: %s, rid: %s", cond.ToMapStr(), err, rid)
 		_ = resp.WriteError(http.StatusInternalServerError, &meta.RespError{Msg: err})
 		return
 	}
@@ -377,7 +430,7 @@ func (s *Service) ListBizHostsTopo(req *restful.Request, resp *restful.Response)
 	}
 	modules, err := s.CoreAPI.CoreService().Instance().ReadInstance(ctx, header, common.BKInnerObjIDModule, query)
 	if err != nil {
-		blog.ErrorJSON("get module by condition: %s failed, err: %+v, rid: %s", cond.ToMapStr(), err, rid)
+		blog.ErrorJSON("get module by condition: %s failed, err: %s, rid: %s", cond.ToMapStr(), err, rid)
 		_ = resp.WriteError(http.StatusInternalServerError, &meta.RespError{Msg: err})
 		return
 	}
@@ -431,7 +484,7 @@ func (s *Service) ListBizHostsTopo(req *restful.Request, resp *restful.Response)
 	}
 
 	result := meta.NewSuccessResponse(hostTopos)
-	_ = resp.WriteEntity(result)
+	_ = resp.WriteAsJson(result)
 }
 
 func (s *Service) CountTopoNodeHosts(req *restful.Request, resp *restful.Response) {
@@ -496,6 +549,7 @@ func (s *Service) countTopoNodeHosts(srvData *srvComm, bizID int64, option meta.
 		Page: meta.BasePage{
 			Limit: common.BKNoLimit,
 		},
+		Fields: []string{common.BKModuleIDField, common.BKHostIDField},
 	}
 	relationResult, err := s.CoreAPI.CoreService().Host().GetHostModuleRelation(srvData.ctx, srvData.header, &relationOption)
 	if err != nil {

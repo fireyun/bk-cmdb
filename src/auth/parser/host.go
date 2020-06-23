@@ -301,26 +301,31 @@ func (ps *parseStream) userCustom() *parseStream {
 }
 
 const (
-	deleteHostBatchPattern                    = "/api/v3/hosts/batch"
-	addHostsToHostPoolPattern                 = "/api/v3/hosts/add"
-	addHostsToResourcePoolPattern             = "/api/v3/hosts/add/resource"
-	moveHostToBusinessModulePattern           = "/api/v3/hosts/modules"
-	moveResPoolToBizIdleModulePattern         = "/api/v3/hosts/modules/resource/idle"
-	moveHostsToBizFaultModulePattern          = "/api/v3/hosts/modules/fault"
-	moveHostsFromModuleToResPoolPattern       = "/api/v3/hosts/modules/resource"
-	moveHostsToBizIdleModulePattern           = "/api/v3/hosts/modules/idle"
-	moveHostsToBizRecycleModulePattern        = "/api/v3/hosts/modules/recycle"
-	moveHostsFromOneToAnotherBizModulePattern = "/api/v3/hosts/modules/biz/mutilple"
-	moveHostsFromRscPoolToAppModule           = "/api/v3/hosts/host/add/module"
-	cleanHostInSetOrModulePattern             = "/api/v3/hosts/modules/idle/set"
-	findHostTopoRelationPattern               = "/api/v3/host/topo/relation/read"
-	updateHostCloudAreaFieldPattern           = "/api/v3/updatemany/hosts/cloudarea_field"
-	updateImportHostsPattern                  = "/api/v3/hosts/update"
+	deleteHostBatchPattern              = "/api/v3/hosts/batch"
+	addHostsToHostPoolPattern           = "/api/v3/hosts/add"
+	addHostsToResourcePoolPattern       = "/api/v3/hosts/add/resource"
+	moveHostToBusinessModulePattern     = "/api/v3/hosts/modules"
+	moveResPoolToBizIdleModulePattern   = "/api/v3/hosts/modules/resource/idle"
+	moveHostsToBizFaultModulePattern    = "/api/v3/hosts/modules/fault"
+	moveHostsFromModuleToResPoolPattern = "/api/v3/hosts/modules/resource"
+	moveHostsToBizIdleModulePattern     = "/api/v3/hosts/modules/idle"
+	moveHostsToBizRecycleModulePattern  = "/api/v3/hosts/modules/recycle"
+	moveHostsFromRscPoolToAppModule     = "/api/v3/hosts/host/add/module"
+	moveHostAcrossBizPattern            = "/api/v3/hosts/modules/across/biz"
+	cleanHostInSetOrModulePattern       = "/api/v3/hosts/modules/idle/set"
+	findHostTopoRelationPattern         = "/api/v3/host/topo/relation/read"
+	updateHostCloudAreaFieldPattern     = "/api/v3/updatemany/hosts/cloudarea_field"
+	updateImportHostsPattern            = "/api/v3/hosts/update"
+	getHostModuleRelationPattern        = "/api/v3/hosts/modules/read"
+	lockHostPattern                     = "/api/v3/host/lock"
+	unLockHostPattern                   = "/api/v3/host/lock"
+	queryHostLockPattern                = "/api/v3/host/lock/search"
 
 	// used in sync framework.
 	moveHostToBusinessOrModulePattern = "/api/v3/hosts/sync/new/host"
 	findHostsWithConditionPattern     = "/api/v3/hosts/search"
 	findBizHostsWithoutAppPattern     = "/api/v3/hosts/list_hosts_without_app"
+	findResourcePoolHostsPattern      = "/api/v3/hosts/list_resource_pool_hosts"
 	findHostsDetailsPattern           = "/api/v3/hosts/search/asstdetail"
 	updateHostInfoBatchPattern        = "/api/v3/hosts/batch"
 	updateHostPropertyBatchPattern    = "/api/v3/hosts/property/batch"
@@ -384,7 +389,42 @@ func (ps *parseStream) host() *parseStream {
 		return ps
 	}
 
-	// TODO: add host lock authorize filter if needed.
+	// host lock authorize filter
+	if ps.hitPattern(lockHostPattern, http.MethodPost) {
+		ps.Attribute.Resources = []meta.ResourceAttribute{
+			{
+				Basic: meta.Basic{
+					Type:   meta.HostInstance,
+					Action: meta.SkipAction,
+				},
+			},
+		}
+		return ps
+	}
+
+	if ps.hitPattern(unLockHostPattern, http.MethodDelete) {
+		ps.Attribute.Resources = []meta.ResourceAttribute{
+			{
+				Basic: meta.Basic{
+					Type:   meta.HostInstance,
+					Action: meta.SkipAction,
+				},
+			},
+		}
+		return ps
+	}
+
+	if ps.hitPattern(queryHostLockPattern, http.MethodPost) {
+		ps.Attribute.Resources = []meta.ResourceAttribute{
+			{
+				Basic: meta.Basic{
+					Type:   meta.HostInstance,
+					Action: meta.SkipAction,
+				},
+			},
+		}
+		return ps
+	}
 
 	// delete hosts batch operation.
 	if ps.hitPattern(deleteHostBatchPattern, http.MethodDelete) {
@@ -571,26 +611,6 @@ func (ps *parseStream) host() *parseStream {
 		return ps
 	}
 
-	// move hosts from one business module to another business module.
-	if ps.hitPattern(moveHostsFromOneToAnotherBizModulePattern, http.MethodPost) {
-		bizID, err := ps.parseBusinessID()
-		if err != nil {
-			ps.err = err
-			return ps
-		}
-		ps.Attribute.Resources = []meta.ResourceAttribute{
-			meta.ResourceAttribute{
-				BusinessID: bizID,
-				Basic: meta.Basic{
-					Type:   meta.HostInstance,
-					Action: meta.MoveHostToAnotherBizModule,
-				},
-			},
-		}
-
-		return ps
-	}
-
 	if ps.hitPattern(moveHostsFromRscPoolToAppModule, http.MethodPost) {
 		ps.Attribute.Resources = []meta.ResourceAttribute{
 			meta.ResourceAttribute{
@@ -603,6 +623,20 @@ func (ps *parseStream) host() *parseStream {
 			},
 		}
 
+		return ps
+	}
+
+	// transfer host to another business
+	if ps.hitPattern(moveHostAcrossBizPattern, http.MethodPost) {
+		ps.Attribute.Resources = []meta.ResourceAttribute{
+			meta.ResourceAttribute{
+				BusinessID: 0,
+				Basic: meta.Basic{
+					Type:   meta.HostInstance,
+					Action: meta.MoveHostToAnotherBizModule,
+				},
+			},
+		}
 		return ps
 	}
 
@@ -744,6 +778,19 @@ func (ps *parseStream) host() *parseStream {
 		return ps
 	}
 
+	// find resource pool hosts
+	if ps.hitPattern(findResourcePoolHostsPattern, http.MethodPost) {
+		ps.Attribute.Resources = []meta.ResourceAttribute{
+			meta.ResourceAttribute{
+				Basic: meta.Basic{
+					Type:   meta.HostInstance,
+					Action: meta.FindMany,
+				},
+			},
+		}
+		return ps
+	}
+
 	// find hosts under business specified by path parameter
 	if ps.hitRegexp(findBizHostsRegex, http.MethodPost) {
 		bizID, err := strconv.ParseInt(ps.RequestCtx.Elements[4], 10, 64)
@@ -823,8 +870,9 @@ func (ps *parseStream) host() *parseStream {
 		ps.Attribute.Resources = []meta.ResourceAttribute{
 			meta.ResourceAttribute{
 				Basic: meta.Basic{
-					Type:   meta.HostInstance,
-					Action: meta.UpdateMany,
+					Type: meta.HostInstance,
+					// Action: meta.UpdateMany,
+					Action: meta.SkipAction,
 				},
 			},
 		}
@@ -865,6 +913,24 @@ func (ps *parseStream) host() *parseStream {
 				Basic: meta.Basic{
 					Type:   meta.SystemConfig,
 					Action: meta.FindMany,
+				},
+			},
+		}
+		return ps
+	}
+
+	if ps.hitPattern(getHostModuleRelationPattern, http.MethodPost) {
+		bizID, err := ps.parseBusinessID()
+		if err != nil {
+			ps.err = err
+			return ps
+		}
+		ps.Attribute.Resources = []meta.ResourceAttribute{
+			{
+				BusinessID: bizID,
+				Basic: meta.Basic{
+					Type:   meta.MainlineInstanceTopology,
+					Action: meta.Find,
 				},
 			},
 		}
