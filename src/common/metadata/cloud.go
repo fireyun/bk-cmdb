@@ -45,20 +45,20 @@ const (
 	TencentCloud string = "tencent_cloud"
 )
 
-// 云同步任务同步状态
+var VendorNamesMap = map[string]string{
+	"1": AWS,
+	"2": TencentCloud,
+}
+
+var SupportedCloudVendors = []string{"1", "2"}
+
+// 同步状态
 const (
 	CloudSyncSuccess    string = "cloud_sync_success"
 	CloudSyncFail       string = "cloud_sync_fail"
 	CloudSyncInProgress string = "cloud_sync_in_progress"
 )
 
-var SupportedCloudVendors = []string{"aws", "tencent_cloud"}
-
-// 云厂商枚举值
-var VendorNameIDs = map[string]string{
-	"aws":           "1",
-	"tencent_cloud": "2",
-}
 
 // 云主机状态枚举值
 var CloudHostStatusIDs = map[string]string{
