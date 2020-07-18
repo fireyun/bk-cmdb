@@ -22,7 +22,7 @@ import (
 )
 
 // get resource database table name
-func getResourceTableName(resourceType iam.ResourceTypeID) string {
+func getResourceTableName(resourceType iam.TypeID) string {
 	switch resourceType {
 	case iam.Host:
 		return common.BKTableNameBaseHost
@@ -65,7 +65,7 @@ func getResourceTableName(resourceType iam.ResourceTypeID) string {
 	}
 }
 
-func isResourceIDStringType(resourceType iam.ResourceTypeID) bool {
+func isResourceIDStringType(resourceType iam.TypeID) bool {
 	switch resourceType {
 	case iam.SysModelGroup, iam.SysInstanceModel, iam.SysAssociationType:
 		return true
@@ -74,7 +74,7 @@ func isResourceIDStringType(resourceType iam.ResourceTypeID) bool {
 }
 
 // get model instance resource's model id
-func GetInstanceResourceObjID(resourceType iam.ResourceTypeID) string {
+func GetInstanceResourceObjID(resourceType iam.TypeID) string {
 	switch resourceType {
 	case iam.Host:
 		return common.BKInnerObjIDHost
@@ -92,7 +92,7 @@ func GetInstanceResourceObjID(resourceType iam.ResourceTypeID) string {
 }
 
 // generate condition for resource type that have special constraints
-func (lgc *Logics) generateSpecialCondition(kit *rest.Kit, resourceType iam.ResourceTypeID, condition map[string]interface{}) (map[string]interface{}, error) {
+func (lgc *Logics) generateSpecialCondition(kit *rest.Kit, resourceType iam.TypeID, condition map[string]interface{}) (map[string]interface{}, error) {
 	if condition == nil {
 		condition = make(map[string]interface{})
 	}

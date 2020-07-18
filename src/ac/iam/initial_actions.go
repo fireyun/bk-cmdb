@@ -170,7 +170,7 @@ func genBusinessCustomQueryActions() []ResourceAction {
 		Name:                 "动态分组查询",
 		NameEn:               "View Dynamic Grouping",
 		Type:                 View,
-		RelatedResourceTypes: relatedResource,
+		RelatedResourceTypes: []RelateResourceType{businessResource},
 		RelatedActions:       nil,
 		Version:              1,
 	})

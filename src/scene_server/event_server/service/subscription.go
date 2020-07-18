@@ -345,8 +345,6 @@ func (s *Service) ListSubscriptions(req *restful.Request, resp *restful.Response
 	defErr := s.CCErr.CreateDefaultCCErrorIf(util.GetLanguage(header))
 	ownerID := util.GetOwnerID(header)
 
-	blog.Infof("select subscription, rid: %s", rid)
-
 	var data metadata.ParamSubscriptionSearch
 	if err := json.NewDecoder(req.Request.Body).Decode(&data); err != nil {
 		blog.Errorf("search subscription, but decode body failed, err: %v, rid: %s", err, rid)
@@ -362,7 +360,7 @@ func (s *Service) ListSubscriptions(req *restful.Request, resp *restful.Response
 	condition = util.SetModOwner(condition, ownerID)
 
 	// get authorized event subscription ids if auth is enabled
-	if auth.IsAuthed() {
+	if auth.EnableAuthorize() {
 		authInput := meta.ListAuthorizedResourcesParam{
 			UserName:     util.GetUser(header),
 			ResourceType: meta.EventPushing,

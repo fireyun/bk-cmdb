@@ -19,7 +19,7 @@ import (
 	"configcenter/src/ac/meta"
 )
 
-func GenerateResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func GenerateResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	switch attribute.Basic.Type {
 	case meta.Business:
 		return businessResourceID(resourceType, attribute)
@@ -106,7 +106,7 @@ func GenerateResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAtt
 }
 
 // generate business related resource id.
-func businessResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func businessResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if attribute.InstanceID <= 0 {
 		return make([]RscTypeAndID, 0), nil
 	}
@@ -120,7 +120,7 @@ func businessResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAtt
 
 // generate model's resource id, works for app model and model management
 // resource type in auth center.
-func modelResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func modelResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if attribute.InstanceID <= 0 {
 		return make([]RscTypeAndID, 0), nil
 	}
@@ -133,33 +133,33 @@ func modelResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttrib
 }
 
 // generate module resource id.
-func modelModuleResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func modelModuleResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	return make([]RscTypeAndID, 0), nil
 }
 
-func modelSetResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func modelSetResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	return make([]RscTypeAndID, 0), nil
 }
 
-func mainlineModelResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func mainlineModelResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	return make([]RscTypeAndID, 0), nil
 }
 
-func mainlineModelTopologyResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func mainlineModelTopologyResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	return make([]RscTypeAndID, 0), nil
 }
 
-func mainlineInstanceTopologyResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
-
-	return make([]RscTypeAndID, 0), nil
-}
-
-func modelAssociationResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func mainlineInstanceTopologyResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 
 	return make([]RscTypeAndID, 0), nil
 }
 
-func associationTypeResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func modelAssociationResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+
+	return make([]RscTypeAndID, 0), nil
+}
+
+func associationTypeResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if attribute.InstanceID <= 0 {
 		return make([]RscTypeAndID, 0), nil
 	}
@@ -171,12 +171,12 @@ func associationTypeResourceID(resourceType ResourceTypeID, attribute *meta.Reso
 	return []RscTypeAndID{id}, nil
 }
 
-func modelInstanceAssociationResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func modelInstanceAssociationResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 
 	return nil, nil
 }
 
-func modelInstanceResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func modelInstanceResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if attribute.InstanceID <= 0 {
 		if len(attribute.Layers) == 0 {
 			return make([]RscTypeAndID, 0), nil
@@ -204,17 +204,17 @@ func modelInstanceResourceID(resourceType ResourceTypeID, attribute *meta.Resour
 	}, nil
 }
 
-func modelInstanceTopologyResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func modelInstanceTopologyResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 
 	return make([]RscTypeAndID, 0), nil
 }
 
-func modelTopologyResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func modelTopologyResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 
 	return make([]RscTypeAndID, 0), nil
 }
 
-func modelClassificationResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func modelClassificationResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if attribute.InstanceID <= 0 {
 		return make([]RscTypeAndID, 0), nil
 	}
@@ -225,7 +225,7 @@ func modelClassificationResourceID(resourceType ResourceTypeID, attribute *meta.
 	return []RscTypeAndID{id}, nil
 }
 
-func modelAttributeGroupResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func modelAttributeGroupResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if len(attribute.Layers) < 1 {
 		return nil, NotEnoughLayer
 	}
@@ -236,7 +236,7 @@ func modelAttributeGroupResourceID(resourceType ResourceTypeID, attribute *meta.
 	return []RscTypeAndID{id}, nil
 }
 
-func modelAttributeResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func modelAttributeResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if len(attribute.Layers) < 1 {
 		return nil, NotEnoughLayer
 	}
@@ -250,7 +250,7 @@ func modelAttributeResourceID(resourceType ResourceTypeID, attribute *meta.Resou
 	return []RscTypeAndID{id}, nil
 }
 
-func modelUniqueResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func modelUniqueResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if len(attribute.Layers) < 1 {
 		return nil, NotEnoughLayer
 	}
@@ -261,22 +261,22 @@ func modelUniqueResourceID(resourceType ResourceTypeID, attribute *meta.Resource
 	return []RscTypeAndID{id}, nil
 }
 
-func hostUserCustomResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func hostUserCustomResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 
 	return make([]RscTypeAndID, 0), nil
 }
 
-func hostFavoriteResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func hostFavoriteResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 
 	return make([]RscTypeAndID, 0), nil
 }
 
-func netDataCollectorResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func netDataCollectorResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 
 	return make([]RscTypeAndID, 0), nil
 }
 
-func hostInstanceResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func hostInstanceResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	// translate all parent layers
 	resourceIDs := make([]RscTypeAndID, 0)
 
@@ -306,7 +306,7 @@ func hostInstanceResourceID(resourceType ResourceTypeID, attribute *meta.Resourc
 	return resourceIDs, nil
 }
 
-func eventSubscribeResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func eventSubscribeResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if attribute.InstanceID <= 0 {
 		return make([]RscTypeAndID, 0), nil
 	}
@@ -318,7 +318,7 @@ func eventSubscribeResourceID(resourceType ResourceTypeID, attribute *meta.Resou
 	}, nil
 }
 
-func dynamicGroupingResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func dynamicGroupingResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if attribute.InstanceID <= 0 && len(attribute.InstanceIDEx) == 0 {
 		return make([]RscTypeAndID, 0), nil
 	}
@@ -335,7 +335,7 @@ func dynamicGroupingResourceID(resourceType ResourceTypeID, attribute *meta.Reso
 	}, nil
 }
 
-func auditLogResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func auditLogResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if len(attribute.InstanceIDEx) == 0 {
 		return make([]RscTypeAndID, 0), nil
 	}
@@ -348,7 +348,7 @@ func auditLogResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAtt
 	}, nil
 }
 
-func platID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func platID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if len(attribute.Layers) < 1 {
 		return nil, NotEnoughLayer
 	}
@@ -361,19 +361,19 @@ func platID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]R
 	}, nil
 }
 
-func processResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func processResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	return make([]RscTypeAndID, 0), nil
 }
 
-func processServiceInstanceResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func processServiceInstanceResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	return make([]RscTypeAndID, 0), nil
 }
 
-func bizTopologyResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func bizTopologyResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	return make([]RscTypeAndID, 0), nil
 }
 
-func processTemplateResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func processTemplateResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if attribute.InstanceID == 0 {
 		return make([]RscTypeAndID, 0), nil
 	}
@@ -385,11 +385,11 @@ func processTemplateResourceID(resourceType ResourceTypeID, attribute *meta.Reso
 	}, nil
 }
 
-func processServiceCategoryResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func processServiceCategoryResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	return make([]RscTypeAndID, 0), nil
 }
 
-func processServiceTemplateResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func processServiceTemplateResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if attribute.InstanceID == 0 {
 		return make([]RscTypeAndID, 0), nil
 	}
@@ -401,7 +401,7 @@ func processServiceTemplateResourceID(resourceType ResourceTypeID, attribute *me
 	}, nil
 }
 
-func setTemplateResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func setTemplateResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if attribute.InstanceID == 0 {
 		return make([]RscTypeAndID, 0), nil
 	}
@@ -413,7 +413,7 @@ func setTemplateResourceID(resourceType ResourceTypeID, attribute *meta.Resource
 	}, nil
 }
 
-func operationStatisticResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func operationStatisticResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if attribute.InstanceID == 0 {
 		return make([]RscTypeAndID, 0), nil
 	}
@@ -425,7 +425,7 @@ func operationStatisticResourceID(resourceType ResourceTypeID, attribute *meta.R
 	}, nil
 }
 
-func hostApplyResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func hostApplyResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if attribute.InstanceID == 0 {
 		return make([]RscTypeAndID, 0), nil
 	}
@@ -437,7 +437,7 @@ func hostApplyResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAt
 	}, nil
 }
 
-func resourcePoolDirectoryResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func resourcePoolDirectoryResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if attribute.InstanceID == 0 {
 		return make([]RscTypeAndID, 0), nil
 	}
@@ -449,12 +449,12 @@ func resourcePoolDirectoryResourceID(resourceType ResourceTypeID, attribute *met
 	}, nil
 }
 
-func resourceWatch(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func resourceWatch(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 
 	return make([]RscTypeAndID, 0), nil
 }
 
-func cloudAccountResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func cloudAccountResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if attribute.InstanceID == 0 {
 		return make([]RscTypeAndID, 0), nil
 	}
@@ -466,7 +466,7 @@ func cloudAccountResourceID(resourceType ResourceTypeID, attribute *meta.Resourc
 	}, nil
 }
 
-func cloudResourceTaskResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func cloudResourceTaskResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	if attribute.InstanceID == 0 {
 		return make([]RscTypeAndID, 0), nil
 	}
@@ -478,6 +478,6 @@ func cloudResourceTaskResourceID(resourceType ResourceTypeID, attribute *meta.Re
 	}, nil
 }
 
-func configAdminResourceID(resourceType ResourceTypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
+func configAdminResourceID(resourceType TypeID, attribute *meta.ResourceAttribute) ([]RscTypeAndID, error) {
 	return make([]RscTypeAndID, 0), nil
 }

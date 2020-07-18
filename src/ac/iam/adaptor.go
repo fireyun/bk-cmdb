@@ -28,7 +28,31 @@ import (
 
 var NotEnoughLayer = fmt.Errorf("not enough layer")
 
-// convert cc auth attributes to iam resources TODO add resource attributes when attribute filter is enabled
+func AdaptAuthOptions(a *meta.ResourceAttribute) (ActionID, *types.Resource, error) {
+
+	var action ActionID
+
+	action, exist := resourceActionMap[a.Type][a.Action]
+	if !exist {
+		return "", nil, fmt.Errorf("unsupported resource type %s or action %s", a.Type, a.Action)
+	}
+
+	// convert different cmdb resource's to resource's registered to iam
+	rscType, err := ConvertResourceType(a.Type, a.BusinessID)
+	if err != nil {
+		return "", nil, err
+	}
+
+	resource, err := genIamResource(action, *rscType, a)
+	if err != nil {
+		return "", nil, err
+	}
+
+	return action, resource, nil
+}
+
+// convert cc auth attributes to iam resources
+// TODO: add resource attributes when attribute filter is enabled
 func Adaptor(attributes []meta.ResourceAttribute) ([]types.Resource, error) {
 	resources := make([]types.Resource, 0)
 	for _, attribute := range attributes {
@@ -41,7 +65,7 @@ func Adaptor(attributes []meta.ResourceAttribute) ([]types.Resource, error) {
 			return nil, err
 		}
 
-		resourceIDArr, err := GenerateResourceID(ResourceTypeID(info.Type), &attribute)
+		resourceIDArr, err := GenerateResourceID(TypeID(info.Type), &attribute)
 		if err != nil {
 			return nil, err
 		}
@@ -94,8 +118,8 @@ func Adaptor(attributes []meta.ResourceAttribute) ([]types.Resource, error) {
 	return resources, nil
 }
 
-func ConvertResourceType(resourceType meta.ResourceType, businessID int64) (*ResourceTypeID, error) {
-	var iamResourceType ResourceTypeID
+func ConvertResourceType(resourceType meta.ResourceType, businessID int64) (*TypeID, error) {
+	var iamResourceType TypeID
 	switch resourceType {
 	case meta.Business:
 		iamResourceType = Business
@@ -176,7 +200,7 @@ func ConvertResourceType(resourceType meta.ResourceType, businessID int64) (*Res
 	return &iamResourceType, nil
 }
 
-func ConvertResourceAction(resourceType meta.ResourceType, action meta.Action, businessID int64) (ResourceActionID, error) {
+func ConvertResourceAction(resourceType meta.ResourceType, action meta.Action, businessID int64) (ActionID, error) {
 	if action == meta.SkipAction {
 		return Skip, nil
 	}
@@ -220,7 +244,7 @@ func ConvertResourceAction(resourceType meta.ResourceType, action meta.Action, b
 	return Unsupported, fmt.Errorf("unsupported action: %s", action)
 }
 
-var resourceActionMap = map[meta.ResourceType]map[meta.Action]ResourceActionID{
+var resourceActionMap = map[meta.ResourceType]map[meta.Action]ActionID{
 	meta.ModelInstance: {
 		meta.Delete: DeleteInstance,
 		meta.Update: EditInstance,
@@ -247,11 +271,12 @@ var resourceActionMap = map[meta.ResourceType]map[meta.Action]ResourceActionID{
 		meta.ViewBusinessResource: ViewBusinessResource,
 	},
 	meta.DynamicGrouping: {
-		meta.Delete:  DeleteBusinessCustomQuery,
-		meta.Update:  EditBusinessCustomQuery,
-		meta.Create:  CreateBusinessCustomQuery,
-		meta.Find:    FindBusinessCustomQuery,
-		meta.Execute: FindBusinessCustomQuery,
+		meta.Delete:   DeleteBusinessCustomQuery,
+		meta.Update:   EditBusinessCustomQuery,
+		meta.Create:   CreateBusinessCustomQuery,
+		meta.Find:     FindBusinessCustomQuery,
+		meta.FindMany: FindBusinessCustomQuery,
+		meta.Execute:  FindBusinessCustomQuery,
 	},
 	meta.MainlineModel: {
 		meta.Find:   Skip,
@@ -357,10 +382,11 @@ var resourceActionMap = map[meta.ResourceType]map[meta.Action]ResourceActionID{
 		meta.Find:   Skip,
 	},
 	meta.EventPushing: {
-		meta.Delete: DeleteEventPushing,
-		meta.Update: EditEventPushing,
-		meta.Create: CreateEventPushing,
-		meta.Find:   FindEventPushing,
+		meta.Delete:   DeleteEventPushing,
+		meta.Update:   EditEventPushing,
+		meta.Create:   CreateEventPushing,
+		meta.Find:     FindEventPushing,
+		meta.FindMany: FindEventPushing,
 	},
 	meta.CloudAccount: {
 		meta.Delete: DeleteCloudAccount,

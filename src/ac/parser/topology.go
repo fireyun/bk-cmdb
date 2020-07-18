@@ -2553,13 +2553,14 @@ func (ps *parseStream) cloudArea() *parseStream {
 		return ps
 	}
 
-	model, err := ps.getOneModel(mapstr.MapStr{common.BKObjIDField: common.BKInnerObjIDPlat})
-	if err != nil {
-		ps.err = err
-		return ps
-	}
-
 	if ps.hitPattern(findManyCloudAreaPattern, http.MethodPost) {
+
+		model, err := ps.getOneModel(mapstr.MapStr{common.BKObjIDField: common.BKInnerObjIDPlat})
+		if err != nil {
+			ps.err = err
+			return ps
+		}
+
 		ps.Attribute.Resources = []meta.ResourceAttribute{
 			{
 				Basic: meta.Basic{
@@ -2573,6 +2574,12 @@ func (ps *parseStream) cloudArea() *parseStream {
 	}
 
 	if ps.hitPattern(createCloudAreaPattern, http.MethodPost) {
+		model, err := ps.getOneModel(mapstr.MapStr{common.BKObjIDField: common.BKInnerObjIDPlat})
+		if err != nil {
+			ps.err = err
+			return ps
+		}
+
 		ps.Attribute.Resources = []meta.ResourceAttribute{
 			{
 				Basic: meta.Basic{
@@ -2586,6 +2593,12 @@ func (ps *parseStream) cloudArea() *parseStream {
 	}
 
 	if ps.hitPattern(createManyCloudAreaPattern, http.MethodPost) {
+		model, err := ps.getOneModel(mapstr.MapStr{common.BKObjIDField: common.BKInnerObjIDPlat})
+		if err != nil {
+			ps.err = err
+			return ps
+		}
+
 		ps.Attribute.Resources = []meta.ResourceAttribute{
 			{
 				Basic: meta.Basic{
@@ -2599,6 +2612,12 @@ func (ps *parseStream) cloudArea() *parseStream {
 	}
 
 	if ps.hitRegexp(updateCloudAreaRegexp, http.MethodPut) {
+		model, err := ps.getOneModel(mapstr.MapStr{common.BKObjIDField: common.BKInnerObjIDPlat})
+		if err != nil {
+			ps.err = err
+			return ps
+		}
+
 		ps.Attribute.Resources = []meta.ResourceAttribute{
 			{
 				Basic: meta.Basic{
@@ -2612,6 +2631,12 @@ func (ps *parseStream) cloudArea() *parseStream {
 	}
 
 	if ps.hitRegexp(deleteCloudAreaRegexp, http.MethodDelete) {
+		model, err := ps.getOneModel(mapstr.MapStr{common.BKObjIDField: common.BKInnerObjIDPlat})
+		if err != nil {
+			ps.err = err
+			return ps
+		}
+
 		ps.Attribute.Resources = []meta.ResourceAttribute{
 			{
 				Basic: meta.Basic{

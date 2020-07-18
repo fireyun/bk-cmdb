@@ -28,7 +28,7 @@ import (
 // TODO confirm 422 need to be used in which case
 
 // list instances by condition
-func (lgc *Logics) ListInstance(kit *rest.Kit, cond map[string]interface{}, resourceType iam.ResourceTypeID, page types.Page) (*types.ListInstanceResult, error) {
+func (lgc *Logics) ListInstance(kit *rest.Kit, cond map[string]interface{}, resourceType iam.TypeID, page types.Page) (*types.ListInstanceResult, error) {
 	idField := GetResourceIDField(resourceType)
 	nameField := GetResourceNameField(resourceType)
 	if idField == "" || nameField == "" {
@@ -62,7 +62,7 @@ func (lgc *Logics) ListInstance(kit *rest.Kit, cond map[string]interface{}, reso
 }
 
 // search auth resource instances from database
-func (lgc *Logics) searchAuthResource(kit *rest.Kit, param metadata.PullResourceParam, resourceType iam.ResourceTypeID) (*metadata.PullResourceResult, error) {
+func (lgc *Logics) searchAuthResource(kit *rest.Kit, param metadata.PullResourceParam, resourceType iam.TypeID) (*metadata.PullResourceResult, error) {
 	param.Collection = getResourceTableName(resourceType)
 	if param.Collection == "" {
 		blog.Errorf("request type %s is invalid, rid: %s", resourceType, kit.Rid)
@@ -129,7 +129,7 @@ func (lgc *Logics) ListSystemInstance(kit *rest.Kit, req types.PullResourceReq) 
 }
 
 // list business scope instances which has parent id field in its data, like biz parent instances has bk_biz_id field
-func (lgc *Logics) ListBusinessInstance(kit *rest.Kit, req types.PullResourceReq, parentType iam.ResourceTypeID) (*types.ListInstanceResult, error) {
+func (lgc *Logics) ListBusinessInstance(kit *rest.Kit, req types.PullResourceReq, parentType iam.TypeID) (*types.ListInstanceResult, error) {
 	if req.Page.IsIllegal() {
 		blog.Errorf("request page limit %d exceeds max page size, rid: %s", req.Page.Limit, kit.Rid)
 		return nil, kit.CCError.CCErrorf(common.CCErrCommPageLimitIsExceeded)
