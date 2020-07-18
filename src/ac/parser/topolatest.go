@@ -1037,6 +1037,17 @@ func (ps *parseStream) objectLatest() *parseStream {
 			ps.err = err
 			return ps
 		}
+
+		classID := gjson.GetBytes(ps.RequestCtx.Body, common.BKClassificationIDField).String()
+		filter := map[string]interface{}{
+			common.BKClassificationIDField: classID,
+		}
+		classification, err := ps.getOneClassification(filter)
+		if err != nil {
+			ps.err = fmt.Errorf("create object, but get classification failed, err:%v", err)
+			return ps
+		}
+
 		ps.Attribute.Resources = []meta.ResourceAttribute{
 			{
 				BusinessID: bizID,
@@ -1044,6 +1055,7 @@ func (ps *parseStream) objectLatest() *parseStream {
 					Type:   meta.Model,
 					Action: meta.Create,
 				},
+				Layers: []meta.Item{{Type: meta.ModelClassification, InstanceID: classification.ID}},
 			},
 		}
 		return ps

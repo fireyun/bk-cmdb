@@ -130,7 +130,9 @@ func skip(typ meta.ResourceType) bool {
 	if typ != meta.Business &&
 		typ != meta.DynamicGrouping &&
 		typ != meta.ProcessServiceCategory &&
-		typ != meta.EventPushing {
+		typ != meta.EventPushing &&
+		typ != meta.Model &&
+		typ != meta.ModelClassification {
 		return true
 	}
 	return false

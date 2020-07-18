@@ -347,7 +347,7 @@ func GetResourceIDField(resourceType iam.TypeID) string {
 	case iam.SysEventPushing:
 		return common.BKSubscriptionIDField
 	case iam.SysModelGroup:
-		return common.BKClassificationIDField
+		return common.BKFieldID
 	case iam.SysModel:
 		return common.BKFieldID
 	case iam.SysInstanceModel:

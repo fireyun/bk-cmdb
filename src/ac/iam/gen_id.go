@@ -32,32 +32,32 @@ func genIamResource(act ActionID, rscType TypeID, a *meta.ResourceAttribute) (*t
 		return genProcessServiceCategoryResource(act, rscType, a)
 	case meta.EventPushing:
 		return genEventSubscribeResource(act, rscType, a)
-		// case meta.Model:
-		// 	return genModelResource(act, rscType, a)
-		// case meta.ModelModule:
-		// 	return genModelModuleResource(act, rscType, a)
-		// case meta.ModelSet:
-		// 	return genModelSetResource(act, rscType, a)
-		// case meta.MainlineModel:
-		// 	return genMainlineModelResource(act, rscType, a)
-		// case meta.MainlineModelTopology:
-		// 	return genMainlineModelTopologyResource(act, rscType, a)
-		// case meta.MainlineInstanceTopology:
-		// 	return genMainlineInstanceTopologyResource(act, rscType, a)
-		// case meta.AssociationType:
-		// 	return genAssociationTypeResource(act, rscType, a)
-		// case meta.ModelAssociation:
-		// 	return genModelAssociationResource(act, rscType, a)
-		// case meta.ModelInstanceAssociation:
-		// 	return genModelInstanceAssociationResource(act, rscType, a)
-		// case meta.ModelInstance, meta.MainlineInstance:
-		// 	return genModelInstanceResource(act, rscType, a)
-		// case meta.ModelInstanceTopology:
-		// 	return genModelInstanceTopologyResource(act, rscType, a)
-		// case meta.ModelTopology:
-		// 	return genModelTopologyResource(act, rscType, a)
-		// case meta.ModelClassification:
-		// 	return genModelClassificationResource(act, rscType, a)
+	case meta.Model:
+		return genModelResource(act, rscType, a)
+	// case meta.ModelModule:
+	// 	return genModelModuleResource(act, rscType, a)
+	// case meta.ModelSet:
+	// 	return genModelSetResource(act, rscType, a)
+	// case meta.MainlineModel:
+	// 	return genMainlineModelResource(act, rscType, a)
+	// case meta.MainlineModelTopology:
+	// 	return genMainlineModelTopologyResource(act, rscType, a)
+	// case meta.MainlineInstanceTopology:
+	// 	return genMainlineInstanceTopologyResource(act, rscType, a)
+	// case meta.AssociationType:
+	// 	return genAssociationTypeResource(act, rscType, a)
+	// case meta.ModelAssociation:
+	// 	return genModelAssociationResource(act, rscType, a)
+	// case meta.ModelInstanceAssociation:
+	// 	return genModelInstanceAssociationResource(act, rscType, a)
+	// case meta.ModelInstance, meta.MainlineInstance:
+	// 	return genModelInstanceResource(act, rscType, a)
+	// case meta.ModelInstanceTopology:
+	// 	return genModelInstanceTopologyResource(act, rscType, a)
+	// case meta.ModelTopology:
+	// 	return genModelTopologyResource(act, rscType, a)
+	case meta.ModelClassification:
+		return genModelClassificationResource(act, rscType, a)
 		// case meta.ModelAttributeGroup:
 		// 	return genModelAttributeGroupResource(act, rscType, a)
 		// case meta.ModelAttribute:
@@ -195,20 +195,30 @@ func genEventSubscribeResource(act ActionID, typ TypeID, att *meta.ResourceAttri
 	return r, nil
 }
 
-//
-// // generate model's resource id, works for app model and model management
-// // resource type in auth center.
-// func genModelResource(act ActionID, resourceType TypeID, attribute *meta.ResourceAttribute) (*types.Resource, error) {
-// 	if attribute.InstanceID <= 0 {
-// 		return make([]RscTypeAndID, 0), nil
-// 	}
-// 	id := RscTypeAndID{
-// 		ResourceType: resourceType,
-// 	}
-// 	id.ResourceID = strconv.FormatInt(attribute.InstanceID, 10)
-//
-// 	return []RscTypeAndID{id}, nil
-// }
+// generate model's resource id, works for app model and model management
+func genModelResource(act ActionID, typ TypeID, att *meta.ResourceAttribute) (*types.Resource, error) {
+	r := &types.Resource{
+		System:    SystemIDCMDB,
+		Type:      types.ResourceType(typ),
+		Attribute: nil,
+	}
+
+	// do not related to instance authorize
+	if act == CreateModel {
+		// when create model based on model group
+		if len(att.Layers) > 0 {
+			r.Type = types.ResourceType(SysModelGroup)
+			r.ID = strconv.FormatInt(att.Layers[0].InstanceID, 10)
+			return r, nil
+		}
+		return r, nil
+	}
+
+	r.ID = strconv.FormatInt(att.InstanceID, 10)
+
+	return r, nil
+}
+
 //
 // // generate module resource id.
 // func genModelModuleResource(act ActionID, resourceType TypeID,
@@ -307,32 +317,37 @@ func genEventSubscribeResource(act ActionID, typ TypeID, att *meta.ResourceAttri
 //
 // 	return make([]RscTypeAndID, 0), nil
 // }
+
+func genModelClassificationResource(act ActionID, typ TypeID, att *meta.ResourceAttribute) (*types.Resource, error) {
+	r := &types.Resource{
+		System:    SystemIDCMDB,
+		Type:      types.ResourceType(typ),
+		Attribute: nil,
+	}
+
+	// create model group do not related to instance authorize
+	if act == CreateModelGroup {
+		return r, nil
+	}
+
+	r.ID = strconv.FormatInt(att.InstanceID, 10)
+
+	return r, nil
+}
+
 //
-// func genModelClassificationResource(act ActionID, resourceType TypeID,
-// 	attribute *meta.ResourceAttribute) ([]RscTypeAndID,
-// 	error) {
-// 	if attribute.InstanceID <= 0 {
-// 		return make([]RscTypeAndID, 0), nil
-// 	}
-// 	id := RscTypeAndID{
-// 		ResourceType: resourceType,
-// 		ResourceID:   strconv.FormatInt(attribute.InstanceID, 10),
-// 	}
-// 	return []RscTypeAndID{id}, nil
-// }
-//
-// func genModelAttributeGroupResource(act ActionID, resourceType TypeID,
-// 	attribute *meta.ResourceAttribute) ([]RscTypeAndID,
-// 	error) {
-// 	if len(attribute.Layers) < 1 {
-// 		return nil, NotEnoughLayer
-// 	}
-// 	id := RscTypeAndID{
-// 		ResourceType: SysModel,
-// 	}
-// 	id.ResourceID = strconv.FormatInt(attribute.Layers[len(attribute.Layers)-1].InstanceID, 10)
-// 	return []RscTypeAndID{id}, nil
-// }
+//func genModelAttributeGroupResource(act ActionID, resourceType TypeID,
+//	attribute *meta.ResourceAttribute) ([]RscTypeAndID,
+//	error) {
+//	if len(attribute.Layers) < 1 {
+//		return nil, NotEnoughLayer
+//	}
+//	id := RscTypeAndID{
+//		ResourceType: SysModel,
+//	}
+//	id.ResourceID = strconv.FormatInt(attribute.Layers[len(attribute.Layers)-1].InstanceID, 10)
+//	return []RscTypeAndID{id}, nil
+//}
 //
 // func genModelAttributeResource(act ActionID, resourceType TypeID,
 // 	attribute *meta.ResourceAttribute) ([]RscTypeAndID,

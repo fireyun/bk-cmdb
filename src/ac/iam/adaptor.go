@@ -401,10 +401,11 @@ var resourceActionMap = map[meta.ResourceType]map[meta.Action]ActionID{
 		meta.Find:   FindCloudResourceTask,
 	},
 	meta.Model: {
-		meta.Delete: DeleteModel,
-		meta.Update: EditModel,
-		meta.Create: CreateModel,
-		meta.Find:   Skip,
+		meta.Delete:   DeleteModel,
+		meta.Update:   EditModel,
+		meta.Create:   CreateModel,
+		meta.Find:     Skip,
+		meta.FindMany: Skip,
 	},
 	meta.AssociationType: {
 		meta.Delete: DeleteAssociationType,
@@ -413,10 +414,11 @@ var resourceActionMap = map[meta.ResourceType]map[meta.Action]ActionID{
 		meta.Find:   Skip,
 	},
 	meta.ModelClassification: {
-		meta.Delete: DeleteModelGroup,
-		meta.Update: EditModelGroup,
-		meta.Create: CreateModelGroup,
-		meta.Find:   Skip,
+		meta.Delete:   DeleteModelGroup,
+		meta.Update:   EditModelGroup,
+		meta.Create:   CreateModelGroup,
+		meta.Find:     Skip,
+		meta.FindMany: Skip,
 	},
 	meta.OperationStatistic: {
 		meta.Create: EditOperationStatistic,
