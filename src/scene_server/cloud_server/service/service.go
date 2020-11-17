@@ -58,6 +58,7 @@ func (s *Service) WebService() *restful.Container {
 		return s.Engine.CCErr
 	}
 	api.Filter(rdapi.AllGlobalFilter(getErrFunc))
+	api.Filter(rdapi.TraceFilter("cloudserver"))
 	api.Produces(restful.MIME_JSON)
 
 	s.initRoute(api)

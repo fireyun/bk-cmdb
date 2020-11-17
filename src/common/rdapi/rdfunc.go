@@ -27,6 +27,8 @@ import (
 	"configcenter/src/common/util"
 
 	"github.com/emicklei/go-restful"
+	"github.com/opentracing/opentracing-go"
+	"github.com/opentracing/opentracing-go/ext"
 )
 
 func checkHTTPAuth(req *restful.Request, defErr errors.DefaultCCErrorIf) (int, string) {
@@ -88,6 +90,31 @@ func RequestLogFilter() func(req *restful.Request, resp *restful.Response, fchai
 		blog.Infof("code: %s, user: %s, rip: %s, uri: %s, body: %s, rid: %s",
 			header.Get("Bk-App-Code"), header.Get("Bk_user"), header.Get("X-Real-Ip"),
 			req.Request.RequestURI, body, util.GetHTTPCCRequestID(header))
+
+		fchain.ProcessFilter(req, resp)
+		return
+	}
+}
+
+func TraceFilter(module string) func(req *restful.Request, resp *restful.Response, fchain *restful.FilterChain) {
+	return func(req *restful.Request, resp *restful.Response, fchain *restful.FilterChain) {
+		spanCtx, err := opentracing.GlobalTracer().Extract(opentracing.HTTPHeaders, opentracing.HTTPHeadersCarrier(req.Request.Header))
+		if err != nil {
+
+		}
+		span := opentracing.GlobalTracer().StartSpan(module, ext.RPCServerOption(spanCtx))
+		defer span.Finish()
+		ext.SpanKindRPCClient.Set(span)
+		ext.HTTPUrl.Set(span, req.Request.RequestURI)
+		ext.HTTPMethod.Set(span, req.Request.Method)
+
+		if err := span.Tracer().Inject(
+			span.Context(),
+			opentracing.HTTPHeaders,
+			opentracing.HTTPHeadersCarrier(req.Request.Header),
+		); err != nil {
+			blog.Errorf("Inject error:%#v", err)
+		}
 
 		fchain.ProcessFilter(req, resp)
 		return

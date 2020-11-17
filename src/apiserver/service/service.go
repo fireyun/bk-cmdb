@@ -70,6 +70,7 @@ func (s *service) WebServices() []*restful.WebService {
 	ws.Filter(rdapi.AllGlobalFilter(getErrFun))
 	ws.Filter(rdapi.RequestLogFilter())
 	ws.Filter(s.LimiterFilter())
+	ws.Filter(rdapi.TraceFilter("apiserver"))
 	ws.Produces(restful.MIME_JSON)
 	if auth.EnableAuthorize() {
 		ws.Filter(s.authFilter(getErrFun))

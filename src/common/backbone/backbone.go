@@ -35,6 +35,8 @@ import (
 	"configcenter/src/storage/dal/redis"
 
 	"github.com/rs/xid"
+	"github.com/uber/jaeger-client-go"
+	jaegercfg "github.com/uber/jaeger-client-go/config"
 )
 
 // connect svcManager retry connect time
@@ -188,7 +190,42 @@ func NewBackbone(ctx context.Context, input *BackboneParameter) (*Engine, error)
 		return nil, fmt.Errorf("handle notice failed, err: %v", err)
 	}
 
+	err = initTracer(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("init tracer failed, err: %v\n", err)
+	}
+
 	return engine, nil
+}
+
+// initTracer 将jaeger tracer设置为全局tracer
+func initTracer(ctx context.Context) error {
+	cfg := jaegercfg.Configuration{
+		// 将采样频率设置为1，每一个span都记录，方便查看测试结果
+		Sampler: &jaegercfg.SamplerConfig{
+			Type:  jaeger.SamplerTypeConst,
+			Param: 1,
+		},
+		Reporter: &jaegercfg.ReporterConfig{
+			LogSpans: true,
+			// 将span发往jaeger-collector的服务地址
+			CollectorEndpoint: "http://localhost:14268/api/traces",
+		},
+	}
+	closer, err := cfg.InitGlobalTracer("bk-cmdb", jaegercfg.Logger(jaeger.StdLogger))
+	if err != nil {
+		return err
+	}
+
+	go func() {
+		select {
+		case <-ctx.Done():
+			blog.Warnf("tracer close because of context done")
+			closer.Close()
+		}
+	}()
+
+	return nil
 }
 
 func StartServer(ctx context.Context, cancel context.CancelFunc, e *Engine, HTTPHandler http.Handler, pprofEnabled bool) error {

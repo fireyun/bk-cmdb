@@ -134,7 +134,8 @@ func (s *coreService) WebService() *restful.Container {
 		return s.err
 	}
 	api := new(restful.WebService)
-	api.Path("/api/v3").Filter(s.engine.Metric().RestfulMiddleWare).Filter(rdapi.AllGlobalFilter(getErrFunc)).Produces(restful.MIME_JSON).Consumes(restful.MIME_JSON)
+	api.Path("/api/v3").Filter(s.engine.Metric().RestfulMiddleWare).Filter(rdapi.AllGlobalFilter(getErrFunc)).
+		Filter(rdapi.TraceFilter("corecservice")).Produces(restful.MIME_JSON).Consumes(restful.MIME_JSON)
 	// init service actions
 	s.initService(api)
 	container.Add(api)
