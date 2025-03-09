@@ -24,6 +24,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"time"
 
 	cc "configcenter/src/common/backbone/configcenter"
 	"configcenter/src/common/blog"
@@ -36,6 +37,8 @@ import (
 var handler = &jwtHandler{
 	Enabled: false,
 }
+
+var publicKey string
 
 // GetHandler get jwt handler
 func GetHandler() Handler {
@@ -71,6 +74,7 @@ func Init(prefix string) error {
 	handler.Enabled = true
 
 	if conf.PublicKey != "" {
+		publicKey = conf.PublicKey
 		publicKey, err := base64.StdEncoding.DecodeString(conf.PublicKey)
 		if err != nil {
 			return fmt.Errorf("decode base64 jwt public key %s failed, err: %v", conf.PublicKey, err)
@@ -138,6 +142,8 @@ func (j *jwtHandler) Parse(header http.Header) (http.Header, error) {
 	}
 
 	token, err := j.parseToken(jwtToken)
+	fmt.Printf("*** time: %s, publicKey: '%s' jwtToken: '%s', parsed token: %#v, err: %s\n",
+		time.Now(), publicKey, jwtToken, token, err)
 	if err != nil {
 		return nil, err
 	}

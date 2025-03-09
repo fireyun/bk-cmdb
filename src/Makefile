@@ -37,7 +37,8 @@ server:
 	@cd  $(SCRIPT_DIR) && DISABLE_CRYPTO=$(DISABLE_CRYPTO) bash ./tongsuo.sh
 	@echo -e "\033[34mbuilding server... \033[0m"
 	@rm -rf "./ui/node_modules"
-	@cd  $(SCRIPT_DIR) &&  bash ./build.sh
+	#@cd  $(SCRIPT_DIR) &&  bash ./build.sh
+	@cd  $(SCRIPT_DIR) && cd $(SOURCE_ROOT)/apiserver && make
 	@cd $(SCRIPT_DIR) && python ./generate.py -t '$(BIN_PATH)' -i '${IMAGE}' -o '$(BIN_PATH)/docker'
 	@mkdir $(BIN_PATH)/changelog_user/
 	@cp -R ${DOCS_DIR}/support-file/changelog_user/*  $(BIN_PATH)/changelog_user

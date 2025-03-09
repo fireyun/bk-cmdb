@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
+	"time"
 
 	"configcenter/src/ac/parser"
 	"configcenter/src/apimachinery/discovery"
@@ -426,6 +427,7 @@ func (s *service) JwtFilter() func(req *restful.Request, resp *restful.Response,
 	return func(req *restful.Request, resp *restful.Response, fchain *restful.FilterChain) {
 		header, err := jwt.GetHandler().Parse(req.Request.Header)
 		if err != nil {
+			fmt.Printf("*** time: %s, jwt.GetHandler().Parse err: %s\n", time.Now(), err)
 			rsp := metadata.BaseResp{
 				Code:   common.CCErrAPINoPassSourceCertification,
 				ErrMsg: err.Error(),

@@ -74,11 +74,12 @@ func (s *service) WebServices() []*restful.WebService {
 
 	ws := &restful.WebService{}
 	ws.Path(rootPath)
-	ws.Filter(s.JwtFilter())
+	//ws.Filter(s.JwtFilter())
 	ws.Filter(s.engine.Metric().RestfulMiddleWare)
 	ws.Filter(rdapi.AllGlobalFilter(getErrFun))
 	ws.Filter(rdapi.RequestLogFilter())
 	ws.Filter(s.LimiterFilter())
+	ws.Filter(s.JwtFilter())
 	ws.Produces(restful.MIME_JSON)
 
 	// route skip auth api
